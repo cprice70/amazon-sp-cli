@@ -8,6 +8,7 @@ import { registerAuthCommands } from "./commands/auth.js";
 import { registerOrdersCommands } from "./commands/orders.js";
 import { registerInventoryCommands } from "./commands/inventory.js";
 import { registerCatalogCommands } from "./commands/catalog.js";
+import { registerListingsCommands } from "./commands/listings.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -62,8 +63,20 @@ const clientProxy = new Proxy({} as ReturnType<typeof createClient>, {
   },
 });
 
+function resolveSellerId(opts: { seller?: string }): string {
+  const sellerId = opts.seller ?? config.sellerId;
+  if (!sellerId) {
+    printError(
+      'Seller ID is required. Use --seller <id>, set AMAZON_SP_SELLER_ID, or run "amazon-sp auth login" to set a default.'
+    );
+    process.exit(1);
+  }
+  return sellerId;
+}
+
 registerOrdersCommands(program, clientProxy, resolveMarketplaceId);
 registerInventoryCommands(program, clientProxy, resolveMarketplaceId);
 registerCatalogCommands(program, clientProxy, resolveMarketplaceId);
+registerListingsCommands(program, clientProxy, resolveMarketplaceId, resolveSellerId);
 
 program.parse();

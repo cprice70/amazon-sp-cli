@@ -50,6 +50,8 @@ export function registerAuthCommands(program: Command): void {
         const marketplaceIdInput = await rl.question("Marketplace ID (optional): ");
         const marketplaceId = marketplaceIdInput.trim() || undefined;
 
+        const sellerIdAnswer = await rl.question("Seller ID (optional): ");
+
         const sandboxInput = await rl.question("Sandbox mode? (y/N): ");
         const sandbox = sandboxInput.toLowerCase() === "y";
 
@@ -60,6 +62,7 @@ export function registerAuthCommands(program: Command): void {
           region,
           sandbox,
           ...(marketplaceId && { marketplaceId }),
+          sellerId: sellerIdAnswer.trim() || undefined,
         };
 
         saveConfig(config);
@@ -93,6 +96,7 @@ export function registerAuthCommands(program: Command): void {
         console.log("  Region:         " + (config.region || "(not set)"));
         console.log("  Sandbox:        " + (config.sandbox ? "yes" : "no"));
         console.log("  Marketplace ID: " + (config.marketplaceId || "(not set)"));
+        console.log(`Seller ID:        ${maskSecret(config.sellerId)}`);
         console.log("  Config File:    " + configPath);
         console.log("");
         printStatus(statusMessage);

@@ -9,6 +9,7 @@ export interface Config {
   region: "na" | "eu" | "fe";
   sandbox: boolean;
   marketplaceId?: string;
+  sellerId?: string;
 }
 
 export function getConfigPath(): string {
@@ -34,6 +35,7 @@ export function loadConfig(): Partial<Config> {
   if (process.env.AMAZON_SP_REGION) config.region = process.env.AMAZON_SP_REGION as "na" | "eu" | "fe";
   if (process.env.AMAZON_SP_SANDBOX) config.sandbox = process.env.AMAZON_SP_SANDBOX === "true";
   if (process.env.AMAZON_SP_MARKETPLACE_ID) config.marketplaceId = process.env.AMAZON_SP_MARKETPLACE_ID;
+  if (process.env.AMAZON_SP_SELLER_ID) config.sellerId = process.env.AMAZON_SP_SELLER_ID;
 
   return config;
 }
