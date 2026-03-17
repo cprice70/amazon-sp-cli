@@ -45,7 +45,10 @@ function resolveMarketplaceId(opts: { marketplace?: string }): string {
   return marketplaceId;
 }
 
-// Create a Proxy that throws a helpful error if client wasn't created
+// Create a Proxy that throws a helpful error if client wasn't created.
+// Methods must be bound to `client` so that `this` inside callAPI etc.
+// refers to the real client instance (not the proxy), ensuring state like
+// _access_token is read/written on the correct object.
 const clientProxy = new Proxy({} as ReturnType<typeof createClient>, {
   get(_target, prop) {
     if (!client) {
@@ -54,7 +57,8 @@ const clientProxy = new Proxy({} as ReturnType<typeof createClient>, {
       );
       process.exit(1);
     }
-    return (client as any)[prop];
+    const val = (client as any)[prop as string];
+    return typeof val === "function" ? val.bind(client) : val;
   },
 });
 

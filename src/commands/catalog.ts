@@ -52,6 +52,7 @@ export function registerCatalogCommands(
 
         const result = await client.callAPI({
           operation: "searchCatalogItems",
+          endpoint: "catalogItems",
           query: {
             keywords: [opts.query],
             marketplaceIds: [marketplaceId],
@@ -102,6 +103,7 @@ export function registerCatalogCommands(
 
         const result = await client.callAPI({
           operation: "getCatalogItem",
+          endpoint: "catalogItems",
           path: { asin: opts.asin },
           query: { marketplaceIds: [marketplaceId] },
         }) as GetCatalogItemResult;

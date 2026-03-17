@@ -48,12 +48,16 @@ export function registerOrdersCommands(
       try {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
+        const defaultStart = new Date();
+        defaultStart.setDate(defaultStart.getDate() - 30);
+
         const result = await client.callAPI({
           operation: "getOrders",
+          endpoint: "orders",
           query: {
             MarketplaceIds: [marketplaceId],
             OrderStatuses: opts.status ? [opts.status] : undefined,
-            CreatedAfter: opts.start,
+            CreatedAfter: opts.start ?? defaultStart.toISOString(),
             CreatedBefore: opts.end,
           },
         }) as GetOrdersResult;
@@ -104,6 +108,7 @@ export function registerOrdersCommands(
       try {
         const result = await client.callAPI({
           operation: "getOrder",
+          endpoint: "orders",
           path: { orderId: opts.order },
         }) as OrderRecord;
 

@@ -45,6 +45,7 @@ export function registerInventoryCommands(
 
         const result = await client.callAPI({
           operation: "getInventorySummaries",
+          endpoint: "fbaInventory",
           query: {
             granularityType: "Marketplace",
             granularityId: marketplaceId,
