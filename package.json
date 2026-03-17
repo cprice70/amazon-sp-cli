@@ -1,0 +1,33 @@
+{
+  "name": "amazon-sp-cli",
+  "version": "0.1.0",
+  "description": "CLI for Amazon Selling Partner API",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "amazon-sp": "build/index.js"
+  },
+  "files": ["build"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "watch": "tsc --watch",
+    "start": "node build/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "amazon-sp-api": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
