@@ -70,6 +70,12 @@ describe("listings commands", () => {
 
     await program.parseAsync(["node", "test", "listings", "search", "--json"]);
 
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "searchListingsItems",
+        query: expect.objectContaining({ pageSize: 20 }),
+      })
+    );
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(items, null, 2));
   });
 
