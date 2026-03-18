@@ -237,4 +237,64 @@ describe("listings commands", () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
     expect(processExitSpy).toHaveBeenCalledWith(1);
   });
+
+  // ── listings delete ──────────────────────────────────────────────────────
+
+  it("listings delete prints result status from API response", async () => {
+    mockCallAPI.mockResolvedValueOnce({ status: "PURGED" });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "delete", "--sku", "SKU1"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "deleteListingsItem",
+        path: { sellerId: "SELLER123", sku: "SKU1" },
+      })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith("Result: PURGED");
+  });
+
+  it("listings delete falls back to 'deleted' when response has no status field", async () => {
+    mockCallAPI.mockResolvedValueOnce({});
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "delete", "--sku", "SKU1"]);
+
+    expect(consoleSpy).toHaveBeenCalledWith("Result: deleted");
+  });
+
+  it("listings delete handles API errors gracefully", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("API Error"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "delete", "--sku", "SKU1"]);
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("listings delete shows auth hint on 403 error", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("403 Forbidden"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "delete", "--sku", "SKU1"]);
+
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("auth login")
+    );
+  });
 });
