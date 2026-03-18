@@ -297,4 +297,131 @@ describe("listings commands", () => {
       expect.stringContaining("auth login")
     );
   });
+
+  // ── listings patch ───────────────────────────────────────────────────────
+
+  it("listings patch prints status and submission ID on success", async () => {
+    mockCallAPI.mockResolvedValueOnce({ status: "ACCEPTED", submissionId: "SUB123" });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", '{"patches":[]}',
+    ]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "patchListingsItem",
+        path: { sellerId: "SELLER123", sku: "SKU1" },
+        body: { patches: [] },
+      })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith("Status: ACCEPTED");
+    expect(consoleSpy).toHaveBeenCalledWith("Submission ID: SUB123");
+  });
+
+  it("listings patch omits submission ID line when not in response", async () => {
+    mockCallAPI.mockResolvedValueOnce({ status: "ACCEPTED" });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", '{"patches":[]}',
+    ]);
+
+    expect(consoleSpy).toHaveBeenCalledWith("Status: ACCEPTED");
+    expect(consoleSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Submission ID")
+    );
+  });
+
+  it("listings patch prints issues when present", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      status: "INVALID",
+      issues: [{ code: "ERR1", message: "Bad", severity: "WARNING" }],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", '{"patches":[]}',
+    ]);
+
+    // Issue line has 2 leading spaces (differs from `get` which uses 4)
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[WARNING] ERR1: Bad"));
+  });
+
+  it("listings patch outputs JSON with --json flag", async () => {
+    const result = { status: "ACCEPTED" };
+    mockCallAPI.mockResolvedValueOnce(result);
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", '{"patches":[]}',
+      "--json",
+    ]);
+
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(result, null, 2));
+  });
+
+  it("listings patch rejects invalid JSON body without calling API", async () => {
+    // process.exit is mocked to throw here so execution halts after printError
+    // (otherwise the mocked exit is a no-op and callAPI would be called with
+    // parsedBody=undefined since the inner catch never assigned it)
+    processExitSpy.mockImplementationOnce(() => {
+      throw new Error("process.exit");
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    try {
+      await program.parseAsync([
+        "node", "test", "listings", "patch",
+        "--sku", "SKU1",
+        "--body", "not-json",
+      ]);
+    } catch {
+      // absorb the thrown process.exit error
+    }
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(mockCallAPI).not.toHaveBeenCalled();
+  });
+
+  it("listings patch handles API errors gracefully", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("API Error"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", '{"patches":[]}',
+    ]);
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
 });
