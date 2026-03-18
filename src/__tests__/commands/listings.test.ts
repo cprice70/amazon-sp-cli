@@ -238,6 +238,21 @@ describe("listings commands", () => {
     expect(processExitSpy).toHaveBeenCalledWith(1);
   });
 
+  it("listings get shows auth hint on 401 error", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("401 Unauthorized"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
+
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("auth login")
+    );
+  });
+
   // ── listings delete ──────────────────────────────────────────────────────
 
   it("listings delete prints result status from API response", async () => {
@@ -423,5 +438,24 @@ describe("listings commands", () => {
 
     expect(consoleErrorSpy).toHaveBeenCalled();
     expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("listings patch shows auth hint on 401 error", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("401 Unauthorized"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", '{"patches":[]}',
+    ]);
+
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("auth login")
+    );
   });
 });
