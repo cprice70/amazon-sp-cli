@@ -140,4 +140,101 @@ describe("listings commands", () => {
       expect.stringContaining("auth login")
     );
   });
+
+  // ── listings get ─────────────────────────────────────────────────────────
+
+  it("listings get outputs item detail by default", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      sku: "SKU1",
+      summaries: [
+        { marketplaceId: "ATVPDKIKX0DER", asin: "B001", itemName: "Widget", status: ["BUYABLE"] },
+      ],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "getListingsItem",
+        path: { sellerId: "SELLER123", sku: "SKU1" },
+      })
+    );
+    // All field lines have 2-space indent
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("SKU1"));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("B001"));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Widget"));
+  });
+
+  it("listings get prints issues when present", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      sku: "SKU1",
+      summaries: [
+        { marketplaceId: "ATVPDKIKX0DER", asin: "B001", itemName: "Widget", status: ["BUYABLE"] },
+      ],
+      issues: [{ code: "ERR1", message: "Bad data", severity: "ERROR" }],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
+
+    // Issue line has 4 leading spaces: "    [ERROR] ERR1: Bad data"
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[ERROR] ERR1: Bad data"));
+  });
+
+  it("listings get skips summary block when no matching marketplace", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      sku: "SKU1",
+      summaries: [{ marketplaceId: "OTHER_MP" }],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
+
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("SKU1"));
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("ASIN:"));
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("Title:"));
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("Status:"));
+  });
+
+  it("listings get outputs JSON with --json flag", async () => {
+    const result = {
+      sku: "SKU1",
+      summaries: [
+        { marketplaceId: "ATVPDKIKX0DER", asin: "B001", itemName: "Widget", status: ["BUYABLE"] },
+      ],
+    };
+    mockCallAPI.mockResolvedValueOnce(result);
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1", "--json"]);
+
+    // result is the full mock return value — not a sub-field
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(result, null, 2));
+  });
+
+  it("listings get handles API errors gracefully", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("API Error"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
 });
