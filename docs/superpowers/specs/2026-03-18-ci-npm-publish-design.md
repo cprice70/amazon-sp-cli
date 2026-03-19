@@ -17,6 +17,8 @@ Two GitHub Actions workflows and one `package.json` addition. No external servic
 
 **Trigger:** `push` to `main`, `pull_request` targeting `main`
 
+**Permissions:** `contents: read`
+
 **Steps:**
 1. `actions/checkout@v4`
 2. `actions/setup-node@v4` with `node-version: 20`
@@ -32,7 +34,9 @@ Two GitHub Actions workflows and one `package.json` addition. No external servic
 
 **File:** `.github/workflows/publish.yml`
 
-**Trigger:** `push` of tags matching `v*` (e.g. `v1.0.0`, `v1.2.3`)
+**Trigger:** `push` of tags matching `v[0-9]+.[0-9]+.[0-9]+` (e.g. `v1.0.0`, `v1.2.3`) — intentionally narrow to prevent accidental publishes from tags like `vtest` or `v-wip`
+
+**Permissions:** `contents: read`
 
 **Steps:**
 1. `actions/checkout@v4`
@@ -40,11 +44,11 @@ Two GitHub Actions workflows and one `package.json` addition. No external servic
 3. `npm ci`
 4. `npm run build`
 5. `npm test` — safety gate, publish only if tests pass
-6. `npm publish --access public`
+6. `npm publish --access public` with `env: NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
 
 **Secret required:** `NPM_TOKEN` — set in GitHub repo Settings → Secrets and variables → Actions. Generate a Granular Access Token on npmjs.com scoped to this package with `Read and write` permissions.
 
-**Environment variable:** `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` — required by `actions/setup-node` to authenticate with the npm registry.
+**Authentication note:** `NODE_AUTH_TOKEN` must be set as an `env` variable on the `npm publish` step (not on `setup-node`). The `actions/setup-node` step with `registry-url` writes an `.npmrc` that references `${NODE_AUTH_TOKEN}` — the token must be in the environment at publish time.
 
 **Publish flow:**
 ```
@@ -65,7 +69,7 @@ Add `engines` field:
 "engines": { "node": ">=18" }
 ```
 
-Signals the Node requirement to npm and consumers. The existing `files: ["build"]`, `bin`, and `main` fields are already correct for publishing.
+The floor is `>=18` (not `>=20`) because the package uses no Node 20-specific APIs — Node 18+ is sufficient. CI runs on Node 20 (current LTS), which satisfies the `>=18` constraint. Consumers on Node 18 or 19 are supported by declaration; if a compatibility issue surfaces later the floor can be raised.
 
 ---
 
