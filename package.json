@@ -8,6 +8,7 @@
     "amazon-sp": "build/index.js"
   },
   "files": ["build"],
+  "engines": { "node": ">=18" },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
