@@ -21,6 +21,19 @@ interface GetOrdersResult {
   Orders: OrderRecord[];
 }
 
+interface OrderItem {
+  ASIN: string;
+  SellerSKU?: string;
+  Title?: string;
+  QuantityOrdered: number;
+  QuantityShipped?: number;
+  ItemPrice?: { Amount: string; CurrencyCode: string };
+}
+
+interface GetOrderItemsResult {
+  OrderItems: OrderItem[];
+}
+
 function isAuthError(err: unknown): boolean {
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
@@ -128,6 +141,51 @@ export function registerOrdersCommands(
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         printError(`Failed to get order: ${message}`);
+        if (isAuthError(err)) {
+          printError("Hint: run 'auth login' to re-authenticate.");
+        }
+        process.exit(1);
+      }
+    });
+
+  orders
+    .command("items")
+    .description("List items for an order")
+    .requiredOption("--order <id>", "The order ID")
+    .option("--json", "Output raw JSON instead of table")
+    .action(async (opts: { order: string; json?: boolean }) => {
+      try {
+        const result = await client.callAPI({
+          operation: "getOrderItems",
+          endpoint: "orders",
+          path: { orderId: opts.order },
+        }) as GetOrderItemsResult;
+
+        const items = result.OrderItems ?? [];
+
+        if (opts.json) {
+          printJson(items);
+          return;
+        }
+
+        if (items.length === 0) {
+          console.log("No items found for this order.");
+          return;
+        }
+
+        const rows = items.map((item) => [
+          item.ASIN,
+          item.SellerSKU ?? "",
+          item.Title ?? "",
+          String(item.QuantityOrdered),
+          String(item.QuantityShipped ?? 0),
+          formatCurrency(item.ItemPrice?.Amount),
+        ]);
+
+        printTable(["ASIN", "SKU", "Title", "Qty Ordered", "Qty Shipped", "Price"], rows);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        printError(`Failed to get order items: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");
         }
