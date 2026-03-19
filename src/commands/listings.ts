@@ -70,15 +70,9 @@ export function registerListingsCommands(
             path: { sellerId },
             query: {
               marketplaceIds: [marketplaceId],
-              identifiers: opts.sku ? [opts.sku] : undefined,
-              identifiersType: opts.sku ? "SKU" : undefined,
-              includedData: [
-                "summaries",
-                "attributes",
-                "issues",
-                "offers",
-                "fulfillmentAvailability",
-              ],
+              ...(opts.sku
+                ? { identifiers: [opts.sku], identifiersType: "SKU" }
+                : { pageSize: 20 }),
             },
           })) as SearchListingsItemsResult;
 
@@ -134,16 +128,7 @@ export function registerListingsCommands(
             endpoint: "listingsItems",
             options: { version: "2021-08-01" },
             path: { sellerId, sku: opts.sku },
-            query: {
-              marketplaceIds: [marketplaceId],
-              includedData: [
-                "summaries",
-                "attributes",
-                "issues",
-                "offers",
-                "fulfillmentAvailability",
-              ],
-            },
+            query: { marketplaceIds: [marketplaceId] },
           })) as ListingsItem;
 
           if (opts.json) {
@@ -152,11 +137,17 @@ export function registerListingsCommands(
           }
 
           console.log("");
-          for (const [key, value] of Object.entries(result)) {
-            if (value !== null && value !== undefined) {
-              const display =
-                typeof value === "object" ? JSON.stringify(value) : String(value);
-              console.log(`  ${key}: ${display}`);
+          console.log(`  SKU: ${result.sku}`);
+          const summary = result.summaries?.find((s) => s.marketplaceId === marketplaceId);
+          if (summary) {
+            console.log(`  ASIN: ${summary.asin ?? ""}`);
+            console.log(`  Title: ${summary.itemName ?? ""}`);
+            console.log(`  Status: ${summary.status?.join(", ") ?? ""}`);
+          }
+          if (result.issues && result.issues.length > 0) {
+            console.log("  Issues:");
+            for (const issue of result.issues) {
+              console.log(`    [${issue.severity}] ${issue.code}: ${issue.message}`);
             }
           }
           console.log("");
@@ -260,6 +251,69 @@ export function registerListingsCommands(
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           printError(`Failed to patch listings item: ${message}`);
+          if (isAuthError(err)) {
+            printError("Hint: run 'auth login' to re-authenticate.");
+          }
+          process.exit(1);
+        }
+      }
+    );
+
+  listings
+    .command("create")
+    .description("Create a listings item by SKU")
+    .requiredOption("--sku <sku>", "The SKU")
+    .requiredOption("--body <json>", "Full listing body as JSON string")
+    .option("--marketplace <id>", "Marketplace ID override")
+    .option("--seller <id>", "Seller ID override")
+    .option("--json", "Output raw JSON")
+    .action(
+      async (opts: {
+        sku: string;
+        body: string;
+        marketplace?: string;
+        seller?: string;
+        json?: boolean;
+      }) => {
+        try {
+          const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
+          const sellerId = resolveSellerId({ seller: opts.seller });
+
+          let parsedBody: unknown;
+          try {
+            parsedBody = JSON.parse(opts.body);
+          } catch {
+            printError("Invalid JSON provided for --body");
+            process.exit(1);
+          }
+
+          const result = (await client.callAPI({
+            operation: "putListingsItem",
+            endpoint: "listingsItems",
+            options: { version: "2021-08-01" },
+            path: { sellerId, sku: opts.sku },
+            query: { marketplaceIds: [marketplaceId] },
+            body: parsedBody,
+          })) as PatchListingsItemResult;
+
+          if (opts.json) {
+            printJson(result);
+            return;
+          }
+
+          console.log(`Status: ${result.status}`);
+          if (result.submissionId) {
+            console.log(`Submission ID: ${result.submissionId}`);
+          }
+          if (result.issues && result.issues.length > 0) {
+            console.log("Issues:");
+            for (const issue of result.issues) {
+              console.log(`  [${issue.severity}] ${issue.code}: ${issue.message}`);
+            }
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          printError(`Failed to create listings item: ${message}`);
           if (isAuthError(err)) {
             printError("Hint: run 'auth login' to re-authenticate.");
           }

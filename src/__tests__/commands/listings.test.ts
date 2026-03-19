@@ -458,4 +458,151 @@ describe("listings commands", () => {
       expect.stringContaining("auth login")
     );
   });
+
+  // ── listings create ───────────────────────────────────────────────────────
+
+  it("listings create prints status and submission ID on success", async () => {
+    mockCallAPI.mockResolvedValueOnce({ status: "ACCEPTED", submissionId: "SUB456" });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", '{"productType":"LUGGAGE","requirements":"LISTING"}',
+    ]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "putListingsItem",
+        path: { sellerId: "SELLER123", sku: "SKU1" },
+        query: { marketplaceIds: ["ATVPDKIKX0DER"] },
+        body: { productType: "LUGGAGE", requirements: "LISTING" },
+      })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith("Status: ACCEPTED");
+    expect(consoleSpy).toHaveBeenCalledWith("Submission ID: SUB456");
+  });
+
+  it("listings create omits submission ID line when not in response", async () => {
+    mockCallAPI.mockResolvedValueOnce({ status: "ACCEPTED" });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", '{"productType":"LUGGAGE"}',
+    ]);
+
+    expect(consoleSpy).toHaveBeenCalledWith("Status: ACCEPTED");
+    expect(consoleSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Submission ID")
+    );
+  });
+
+  it("listings create prints issues when present", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      status: "INVALID",
+      issues: [{ code: "ERR1", message: "Bad value", severity: "ERROR" }],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", '{"productType":"LUGGAGE"}',
+    ]);
+
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[ERROR] ERR1: Bad value"));
+  });
+
+  it("listings create outputs JSON with --json flag", async () => {
+    const result = { status: "ACCEPTED", submissionId: "SUB456" };
+    mockCallAPI.mockResolvedValueOnce(result);
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", '{"productType":"LUGGAGE"}',
+      "--json",
+    ]);
+
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(result, null, 2));
+  });
+
+  it("listings create rejects invalid JSON body without calling API", async () => {
+    processExitSpy.mockImplementationOnce(() => {
+      throw new Error("process.exit");
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    try {
+      await program.parseAsync([
+        "node", "test", "listings", "create",
+        "--sku", "SKU1",
+        "--body", "not-json",
+      ]);
+    } catch {
+      // absorb the thrown process.exit error
+    }
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Invalid JSON provided for --body")
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(mockCallAPI).not.toHaveBeenCalled();
+  });
+
+  it("listings create handles API errors gracefully", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("API Error"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", '{"productType":"LUGGAGE"}',
+    ]);
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to create listings item")
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("listings create shows auth hint on 401 error", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("401 Unauthorized"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", '{"productType":"LUGGAGE"}',
+    ]);
+
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("auth login")
+    );
+  });
 });
