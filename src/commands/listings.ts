@@ -70,9 +70,15 @@ export function registerListingsCommands(
             path: { sellerId },
             query: {
               marketplaceIds: [marketplaceId],
-              ...(opts.sku
-                ? { identifiers: [opts.sku], identifiersType: "SKU" }
-                : { pageSize: 20 }),
+              identifiers: opts.sku ? [opts.sku] : undefined,
+              identifiersType: opts.sku ? "SKU" : undefined,
+              includedData: [
+                "summaries",
+                "attributes",
+                "issues",
+                "offers",
+                "fulfillmentAvailability",
+              ],
             },
           })) as SearchListingsItemsResult;
 
@@ -128,7 +134,16 @@ export function registerListingsCommands(
             endpoint: "listingsItems",
             options: { version: "2021-08-01" },
             path: { sellerId, sku: opts.sku },
-            query: { marketplaceIds: [marketplaceId] },
+            query: {
+              marketplaceIds: [marketplaceId],
+              includedData: [
+                "summaries",
+                "attributes",
+                "issues",
+                "offers",
+                "fulfillmentAvailability",
+              ],
+            },
           })) as ListingsItem;
 
           if (opts.json) {
@@ -137,17 +152,11 @@ export function registerListingsCommands(
           }
 
           console.log("");
-          console.log(`  SKU: ${result.sku}`);
-          const summary = result.summaries?.find((s) => s.marketplaceId === marketplaceId);
-          if (summary) {
-            console.log(`  ASIN: ${summary.asin ?? ""}`);
-            console.log(`  Title: ${summary.itemName ?? ""}`);
-            console.log(`  Status: ${summary.status?.join(", ") ?? ""}`);
-          }
-          if (result.issues && result.issues.length > 0) {
-            console.log("  Issues:");
-            for (const issue of result.issues) {
-              console.log(`    [${issue.severity}] ${issue.code}: ${issue.message}`);
+          for (const [key, value] of Object.entries(result)) {
+            if (value !== null && value !== undefined) {
+              const display =
+                typeof value === "object" ? JSON.stringify(value) : String(value);
+              console.log(`  ${key}: ${display}`);
             }
           }
           console.log("");

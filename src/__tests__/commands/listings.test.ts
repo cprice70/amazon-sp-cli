@@ -47,7 +47,7 @@ describe("listings commands", () => {
     expect(mockCallAPI).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "searchListingsItems",
-        query: expect.objectContaining({ pageSize: 20 }),
+        query: expect.objectContaining({ includedData: expect.any(Array) }),
       })
     );
     expect(consoleSpy).toHaveBeenCalled();
@@ -73,7 +73,7 @@ describe("listings commands", () => {
     expect(mockCallAPI).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "searchListingsItems",
-        query: expect.objectContaining({ pageSize: 20 }),
+        query: expect.objectContaining({ includedData: expect.any(Array) }),
       })
     );
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(items, null, 2));
@@ -184,8 +184,8 @@ describe("listings commands", () => {
 
     await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
 
-    // Issue line has 4 leading spaces: "    [ERROR] ERR1: Bad data"
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[ERROR] ERR1: Bad data"));
+    // issues are JSON-stringified as part of the Object.entries output loop
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("ERR1"));
   });
 
   it("listings get skips summary block when no matching marketplace", async () => {
