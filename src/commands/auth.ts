@@ -1,4 +1,5 @@
 import readline from "readline/promises";
+import https from "https";
 import { Command } from "commander";
 import { loadConfig, saveConfig, deleteConfig, getConfigPath, Config } from "../config.js";
 import { printSuccess, printError, printWarning } from "../output.js";
@@ -7,6 +8,83 @@ function maskSecret(value: string | undefined): string {
   if (!value) return "(not set)";
   if (value.length <= 8) return "****";
   return value.slice(0, 4) + "****" + value.slice(-4);
+}
+
+async function fetchJson(options: https.RequestOptions, body?: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          reject(new Error(`Failed to parse response: ${data}`));
+        }
+      });
+    });
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function detectSellerId(config: Partial<Config>): Promise<string | undefined> {
+  try {
+    // Get LWA access token
+    const tokenBody = JSON.stringify({
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: config.refreshToken,
+    });
+    const tokenRes = (await fetchJson(
+      {
+        method: "POST",
+        hostname: "api.amazon.com",
+        path: "/auth/o2/token",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(tokenBody),
+        },
+      },
+      tokenBody
+    )) as { access_token?: string };
+
+    if (!tokenRes.access_token) return undefined;
+
+    // Determine API endpoint based on region
+    const region = config.region ?? "na";
+    const hostname = `sellingpartnerapi-${region}.amazon.com`;
+    const now = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, "");
+
+    const participationsRes = (await fetchJson({
+      method: "GET",
+      hostname,
+      path: "/sellers/v1/marketplaceParticipations",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        host: hostname,
+        "x-amz-access-token": tokenRes.access_token,
+        "x-amz-date": now,
+      },
+    })) as {
+      payload?: Array<{ marketplace: { name: string }; storeName: string }>;
+    };
+
+    const entries = participationsRes.payload ?? [];
+    for (const entry of entries) {
+      // The SP-API seller ID is embedded in the Invoicing Shadow Marketplace storeName
+      // Format: "Invoicing_<number>_<sellerID>"
+      if (entry.marketplace.name.includes("Invoicing Shadow")) {
+        const match = entry.storeName.match(/Invoicing_\d+_([A-Z0-9]+)$/);
+        if (match) return match[1];
+      }
+    }
+  } catch {
+    // Silently ignore detection failures
+  }
+  return undefined;
 }
 
 export function registerAuthCommands(program: Command): void {
@@ -50,22 +128,33 @@ export function registerAuthCommands(program: Command): void {
         const marketplaceIdInput = await rl.question("Marketplace ID (optional): ");
         const marketplaceId = marketplaceIdInput.trim() || undefined;
 
-        const sellerIdAnswer = await rl.question("Seller ID (optional): ");
-
         const sandboxInput = await rl.question("Sandbox mode? (y/N): ");
         const sandbox = sandboxInput.toLowerCase() === "y";
 
-        const config: Partial<Config> = {
-          clientId,
-          clientSecret,
-          refreshToken,
+        const partialConfig: Partial<Config> = {
+          clientId: clientId.trim(),
+          clientSecret: clientSecret.trim(),
+          refreshToken: refreshToken.trim(),
           region,
           sandbox,
           ...(marketplaceId && { marketplaceId }),
-          sellerId: sellerIdAnswer.trim() || undefined,
         };
 
-        saveConfig(config);
+        // Auto-detect SP-API seller ID
+        process.stdout.write("Detecting Seller ID from SP-API... ");
+        const detectedSellerId = await detectSellerId(partialConfig);
+        if (detectedSellerId) {
+          process.stdout.write(`found: ${detectedSellerId}\n`);
+          partialConfig.sellerId = detectedSellerId;
+        } else {
+          process.stdout.write("not found\n");
+          const sellerIdInput = await rl.question(
+            "Seller ID (required for listings commands — find it in Seller Central > Account Info > Merchant Token): "
+          );
+          partialConfig.sellerId = sellerIdInput.trim() || undefined;
+        }
+
+        saveConfig(partialConfig);
         const configPath = getConfigPath();
         printSuccess(`Config saved to ${configPath}`);
       } catch (err) {
@@ -96,7 +185,7 @@ export function registerAuthCommands(program: Command): void {
         console.log("  Region:         " + (config.region || "(not set)"));
         console.log("  Sandbox:        " + (config.sandbox ? "yes" : "no"));
         console.log("  Marketplace ID: " + (config.marketplaceId || "(not set)"));
-        console.log(`Seller ID:        ${maskSecret(config.sellerId)}`);
+        console.log("  Seller ID:      " + (config.sellerId || "(not set)"));
         console.log("  Config File:    " + configPath);
         console.log("");
         printStatus(statusMessage);
