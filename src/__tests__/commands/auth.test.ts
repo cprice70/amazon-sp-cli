@@ -135,4 +135,32 @@ describe("auth commands", () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
     expect(processExitSpy).toHaveBeenCalledWith(1);
   });
+
+  // ── auth logout ───────────────────────────────────────────────────────────
+
+  it("auth logout deletes config and prints success", async () => {
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "logout"]);
+
+    expect(deleteConfig).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Logged out"));
+  });
+
+  it("auth logout handles deleteConfig error", async () => {
+    (deleteConfig as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error("permission denied");
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "logout"]);
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
 });
