@@ -28,16 +28,19 @@ If you haven't set up SP-API access yet, start at [Seller Central → Apps & Ser
 
 ## Installation
 
+### From npm (recommended)
+
 ```bash
-# Clone and install
+npm install -g amazon-sp-cli
+```
+
+### From source
+
+```bash
 git clone https://github.com/cprice70/amazon-sp-cli.git
 cd amazon-sp-cli
 npm install
-
-# Build
 npm run build
-
-# Make the `amazon-sp` command available globally
 npm link
 ```
 
