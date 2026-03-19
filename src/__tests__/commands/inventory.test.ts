@@ -166,4 +166,42 @@ describe("inventory commands", () => {
       expect.stringContaining("auth login")
     );
   });
+
+  // ── inventory list --sku ───────────────────────────────────────────────────
+
+  it("inventory list passes sellerSkus when --sku is provided", async () => {
+    mockCallAPI.mockResolvedValueOnce({ inventorySummaries: [] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerInventoryCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "inventory", "list", "--sku", "MY-SKU"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          sellerSkus: ["MY-SKU"],
+        }),
+      })
+    );
+  });
+
+  it("inventory list omits sellerSkus when --sku is not provided", async () => {
+    mockCallAPI.mockResolvedValueOnce({ inventorySummaries: [] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerInventoryCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "inventory", "list"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.not.objectContaining({
+          sellerSkus: expect.anything(),
+        }),
+      })
+    );
+  });
 });

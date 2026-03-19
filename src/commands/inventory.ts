@@ -39,7 +39,8 @@ export function registerInventoryCommands(
     .description("List inventory summaries")
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON instead of table")
-    .action(async (opts: { marketplace?: string; json?: boolean }) => {
+    .option("--sku <sku>", "Filter by seller SKU")
+    .action(async (opts: { marketplace?: string; json?: boolean; sku?: string }) => {
       try {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
@@ -50,6 +51,7 @@ export function registerInventoryCommands(
             granularityType: "Marketplace",
             granularityId: marketplaceId,
             marketplaceIds: [marketplaceId],
+            ...(opts.sku ? { sellerSkus: [opts.sku] } : {}),
           },
         }) as GetInventorySummariesResult;
 
