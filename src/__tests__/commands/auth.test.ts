@@ -65,6 +65,7 @@ describe("auth commands", () => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     processExitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as any);
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     // Reset all module-level mocks between tests
     (loadConfig as ReturnType<typeof vi.fn>).mockReset();
     (saveConfig as ReturnType<typeof vi.fn>).mockReset();
@@ -159,6 +160,117 @@ describe("auth commands", () => {
     registerAuthCommands(program);
 
     await program.parseAsync(["node", "test", "auth", "logout"]);
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  // ── auth login ────────────────────────────────────────────────────────────
+
+  it("auth login saves config with auto-detected seller ID", async () => {
+    mockReadline(["my-client-id", "my-secret", "my-token", "na", "ATVPDKIKX0DER", "n"]);
+    mockHttpsRequest([
+      { access_token: "tok" },
+      { payload: [{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }] },
+    ]);
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "login"]);
+
+    expect(saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: "my-client-id",
+        clientSecret: "my-secret",
+        refreshToken: "my-token",
+        region: "na",
+        sellerId: "SELLER123",
+      })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Config saved"));
+  });
+
+  it("auth login rejects empty Client ID", async () => {
+    mockReadline([""]);
+    processExitSpy.mockImplementationOnce(() => {
+      throw new Error("process.exit");
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    try {
+      await program.parseAsync(["node", "test", "auth", "login"]);
+    } catch {
+      // absorb the thrown process.exit error
+    }
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Client ID is required")
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(saveConfig).not.toHaveBeenCalled();
+  });
+
+  it("auth login rejects invalid region", async () => {
+    mockReadline(["my-id", "my-secret", "my-token", "xx"]);
+    processExitSpy.mockImplementationOnce(() => {
+      throw new Error("process.exit");
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    try {
+      await program.parseAsync(["node", "test", "auth", "login"]);
+    } catch {
+      // absorb the thrown process.exit error
+    }
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Invalid region")
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(saveConfig).not.toHaveBeenCalled();
+  });
+
+  it("auth login prompts for manual seller ID when auto-detection fails", async () => {
+    mockReadline(["my-client-id", "my-secret", "my-token", "na", "", "n", "MANUAL123"]);
+    mockHttpsRequest([
+      { access_token: "tok" },
+      { payload: [] },
+    ]);
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "login"]);
+
+    expect(saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ sellerId: "MANUAL123" })
+    );
+  });
+
+  it("auth login handles saveConfig error", async () => {
+    mockReadline(["my-client-id", "my-secret", "my-token", "na", "ATVPDKIKX0DER", "n"]);
+    mockHttpsRequest([
+      { access_token: "tok" },
+      { payload: [{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }] },
+    ]);
+    (saveConfig as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error("write error");
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "login"]);
 
     expect(consoleErrorSpy).toHaveBeenCalled();
     expect(processExitSpy).toHaveBeenCalledWith(1);
