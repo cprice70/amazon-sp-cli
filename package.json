@@ -1,14 +1,18 @@
 {
   "name": "amazon-sp-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI for Amazon Selling Partner API",
   "type": "module",
   "main": "build/index.js",
   "bin": {
     "amazon-sp": "build/index.js"
   },
-  "files": ["build"],
-  "engines": { "node": ">=18" },
+  "files": [
+    "build"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
