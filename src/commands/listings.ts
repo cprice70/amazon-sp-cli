@@ -12,8 +12,13 @@ interface ListingsSummary {
 interface ListingsItem {
   sku: string;
   summaries?: ListingsSummary[];
-  attributes?: Record<string, unknown>;
+  attributes?: Record<string, Array<{ value: unknown }>>;
   issues?: Array<{ code: string; message: string; severity: string }>;
+  offers?: unknown;
+  fulfillmentAvailability?: unknown;
+  procurement?: unknown;
+  relationships?: unknown;
+  productTypes?: unknown;
 }
 
 interface SearchListingsItemsResult {
@@ -40,6 +45,54 @@ function isAuthError(err: unknown): boolean {
     );
   }
   return false;
+}
+
+function formatListingDetail(item: ListingsItem, marketplaceId: string): void {
+  console.log("");
+  console.log(`SKU:      ${item.sku}`);
+
+  const summary = item.summaries?.find((s) => s.marketplaceId === marketplaceId);
+  if (summary?.asin) console.log(`ASIN:     ${summary.asin}`);
+  if (summary?.itemName) console.log(`Title:    ${summary.itemName}`);
+  if (summary?.status) console.log(`Status:   ${summary.status.join(", ")}`);
+
+  const attrs = item.attributes;
+
+  // product_description is an array of objects with {language_tag, value, marketplace_id}
+  if (attrs?.product_description) {
+    const descObj = attrs.product_description[0];
+    const desc = typeof descObj === "object" && descObj !== null && "value" in descObj ? descObj.value : descObj;
+    if (desc && typeof desc === "string") {
+      console.log("");
+      console.log("Description:");
+      console.log(`  ${desc}`);
+    }
+  }
+
+  // bullet_point is an array of objects with {language_tag, value, marketplace_id}
+  if (attrs?.bullet_point) {
+    const bullets = (attrs.bullet_point as Array<{ value?: unknown }>)
+      .map((item) => (typeof item === "object" && item !== null && "value" in item ? item.value : item))
+      .filter((val): val is string => typeof val === "string");
+
+    if (bullets.length > 0) {
+      console.log("");
+      console.log("Bullet Points:");
+      bullets.forEach((bullet) => {
+        console.log(`  • ${bullet}`);
+      });
+    }
+  }
+
+  if (item.issues && item.issues.length > 0) {
+    console.log("");
+    console.log("Issues:");
+    item.issues.forEach((issue) => {
+      console.log(`  [${issue.severity}] ${issue.code}: ${issue.message}`);
+    });
+  }
+
+  console.log("");
 }
 
 export function registerListingsCommands(
@@ -78,6 +131,9 @@ export function registerListingsCommands(
                 "issues",
                 "offers",
                 "fulfillmentAvailability",
+                "procurement",
+                "relationships",
+                "productTypes",
               ],
             },
           })) as SearchListingsItemsResult;
@@ -142,6 +198,9 @@ export function registerListingsCommands(
                 "issues",
                 "offers",
                 "fulfillmentAvailability",
+                "procurement",
+                "relationships",
+                "productTypes",
               ],
             },
           })) as ListingsItem;
@@ -151,15 +210,7 @@ export function registerListingsCommands(
             return;
           }
 
-          console.log("");
-          for (const [key, value] of Object.entries(result)) {
-            if (value !== null && value !== undefined) {
-              const display =
-                typeof value === "object" ? JSON.stringify(value) : String(value);
-              console.log(`  ${key}: ${display}`);
-            }
-          }
-          console.log("");
+          formatListingDetail(result, marketplaceId);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           printError(`Failed to get listings item: ${message}`);
