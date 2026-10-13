@@ -57,7 +57,7 @@ export function registerOrdersCommands(
         const defaultStart = new Date();
         defaultStart.setDate(defaultStart.getDate() - 30);
 
-        const result = (await client.callAPI({
+        const result = await client.callAPI({
           operation: "getOrders",
           endpoint: "orders",
           query: {
