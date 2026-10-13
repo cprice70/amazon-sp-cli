@@ -2,6 +2,7 @@ import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson } from "../output.js";
 import { runCommand } from "../errors.js";
+import { collectPages } from "../paginate.js";
 
 interface InventoryDetails {
   fulfillableQuantity?: number;
@@ -17,7 +18,8 @@ interface InventorySummary {
 }
 
 interface GetInventorySummariesResult {
-  inventorySummaries: InventorySummary[];
+  inventorySummaries?: InventorySummary[];
+  pagination?: { nextToken?: string };
 }
 
 export function registerInventoryCommands(
@@ -33,23 +35,26 @@ export function registerInventoryCommands(
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON instead of table")
     .option("--sku <sku>", "Filter by seller SKU")
-    .action(async (opts: { marketplace?: string; json?: boolean; sku?: string }) => {
+    .option("--all", "Fetch every page of results")
+    .action(async (opts: { marketplace?: string; json?: boolean; sku?: string; all?: boolean }) => {
       await runCommand("list inventory", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
-        const result = await client.callAPI({
-          operation: "getInventorySummaries",
-          endpoint: "fbaInventory",
-          options: { version: "v1" },
-          query: {
-            granularityType: "Marketplace",
-            granularityId: marketplaceId,
-            marketplaceIds: [marketplaceId],
-            ...(opts.sku ? { sellerSkus: [opts.sku] } : {}),
-          },
-        }) as GetInventorySummariesResult;
-
-        const summaries = result.inventorySummaries ?? [];
+        const summaries = await collectPages<InventorySummary>(async (nextToken) => {
+          const result = (await client.callAPI({
+            operation: "getInventorySummaries",
+            endpoint: "fbaInventory",
+            options: { version: "v1" },
+            query: {
+              granularityType: "Marketplace",
+              granularityId: marketplaceId,
+              marketplaceIds: [marketplaceId],
+              ...(opts.sku ? { sellerSkus: [opts.sku] } : {}),
+              nextToken,
+            },
+          })) as GetInventorySummariesResult;
+          return { items: result.inventorySummaries, nextToken: result.pagination?.nextToken };
+        }, opts);
 
         if (opts.json) {
           printJson(summaries);

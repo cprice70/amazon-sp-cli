@@ -99,7 +99,8 @@ amazon-sp auth logout
 amazon-sp orders list
 amazon-sp orders list --status UNSHIPPED
 amazon-sp orders list --start 2026-01-01 --end 2026-03-01
-amazon-sp orders list --json
+amazon-sp orders list --limit 500
+amazon-sp orders list --all --json
 ```
 
 | Flag | Description |
@@ -107,8 +108,12 @@ amazon-sp orders list --json
 | `--status <status>` | Filter by status: `PENDING`, `UNSHIPPED`, `SHIPPED`, `CANCELED`, etc. |
 | `--start <date>` | ISO date for CreatedAfter (default: 30 days ago) |
 | `--end <date>` | ISO date for CreatedBefore |
+| `--limit <n>` | Return at most `n` orders, fetching more pages as needed |
+| `--all` | Follow pagination until every matching order is returned |
 | `--marketplace <id>` | Override default marketplace ID |
 | `--json` | Output raw JSON |
+
+Without `--limit` or `--all`, a single page (up to 100 orders) is returned. Order totals are formatted in the order's own currency.
 
 ---
 
@@ -137,12 +142,13 @@ amazon-sp orders items --order 123-4567890-1234567 --json
 ```bash
 amazon-sp inventory list
 amazon-sp inventory list --sku MY-SKU-123
-amazon-sp inventory list --json
+amazon-sp inventory list --all --json
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--sku <sku>` | Filter by seller SKU |
+| `--all` | Follow pagination until every summary is returned |
 | `--marketplace <id>` | Override default marketplace ID |
 | `--json` | Output raw JSON |
 
@@ -155,8 +161,18 @@ amazon-sp inventory list --json
 ```bash
 amazon-sp listings search
 amazon-sp listings search --sku MY-SKU-123
-amazon-sp listings search --json
+amazon-sp listings search --limit 50
+amazon-sp listings search --all --json
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--sku <sku>` | Look up a single SKU |
+| `--limit <n>` | Return at most `n` listings, fetching more pages as needed |
+| `--all` | Follow pagination until every listing is returned |
+| `--marketplace <id>` | Override default marketplace ID |
+| `--seller <id>` | Override default seller ID |
+| `--json` | Output raw JSON |
 
 ---
 
@@ -215,8 +231,17 @@ amazon-sp listings delete --sku MY-SKU-123
 
 ```bash
 amazon-sp catalog search --query "blue widget"
-amazon-sp catalog search --query "blue widget" --json
+amazon-sp catalog search --query "blue widget" --limit 40
+amazon-sp catalog search --query "blue widget" --all --json
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--query <term>` | Search keywords (required) |
+| `--limit <n>` | Return at most `n` items, fetching more pages as needed |
+| `--all` | Follow pagination until every result is returned |
+| `--marketplace <id>` | Override default marketplace ID |
+| `--json` | Output raw JSON |
 
 ---
 
@@ -250,6 +275,15 @@ You can also set credentials via environment variables (useful for CI/scripts):
 | `AMAZON_SP_SANDBOX` | Sandbox mode (`true`/`false`) |
 
 Environment variables override values in the config file.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | The command ran but failed (API error, network error, etc.) |
+| `2` | Bad input: missing marketplace or seller ID, malformed `--body` JSON, invalid flag value |
+| `3` | Not authenticated, or credentials were rejected by Amazon |
 
 ---
 

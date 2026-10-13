@@ -2,6 +2,7 @@ import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson } from "../output.js";
 import { runCommand } from "../errors.js";
+import { collectPages, parseLimit, pageSizeFor } from "../paginate.js";
 
 interface CatalogItemSummary {
   marketplaceId: string;
@@ -17,8 +18,12 @@ interface SearchCatalogItem {
 }
 
 interface SearchCatalogItemsResult {
-  items: SearchCatalogItem[];
+  items?: SearchCatalogItem[];
+  pagination?: { nextToken?: string };
 }
+
+/** catalogItems 2022-04-01 searchCatalogItems accepts pageSize of 1-20. */
+const CATALOG_PAGE_MAX = 20;
 
 interface GetCatalogItemResult {
   asin: string;
@@ -37,23 +42,28 @@ export function registerCatalogCommands(
     .command("search")
     .description("Search catalog items")
     .requiredOption("--query <term>", "Search keyword")
+    .option("--limit <n>", "Maximum number of items to return", parseLimit)
+    .option("--all", "Fetch every page of results")
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON instead of table")
-    .action(async (opts: { query: string; marketplace?: string; json?: boolean }) => {
+    .action(async (opts: { query: string; limit?: number; all?: boolean; marketplace?: string; json?: boolean }) => {
       await runCommand("search catalog", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
-        const result = await client.callAPI({
-          operation: "searchCatalogItems",
-          endpoint: "catalogItems",
-          options: { version: "2022-04-01" },
-          query: {
-            keywords: [opts.query],
-            marketplaceIds: [marketplaceId],
-          },
-        }) as SearchCatalogItemsResult;
-
-        const items = result.items ?? [];
+        const items = await collectPages<SearchCatalogItem>(async (pageToken) => {
+          const result = (await client.callAPI({
+            operation: "searchCatalogItems",
+            endpoint: "catalogItems",
+            options: { version: "2022-04-01" },
+            query: {
+              keywords: [opts.query],
+              marketplaceIds: [marketplaceId],
+              pageSize: pageSizeFor(opts.limit, CATALOG_PAGE_MAX),
+              pageToken,
+            },
+          })) as SearchCatalogItemsResult;
+          return { items: result.items, nextToken: result.pagination?.nextToken };
+        }, opts);
 
         if (opts.json) {
           printJson(items);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { isAuthError, formatApiError, runCommand } from "../errors.js";
+import { isAuthError, formatApiError, runCommand, CliError, EXIT } from "../errors.js";
 
 function spApiError(fields: Record<string, unknown>): Error {
   // Mirrors amazon-sp-api's CustomError: an Error with the response body's
@@ -93,5 +93,43 @@ describe("runCommand", () => {
     });
     const output = consoleErrorSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(output).not.toContain("auth login");
+  });
+});
+
+describe("CliError and exit codes", () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let processExitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    processExitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as any);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("prints a CliError message verbatim and exits with its code", async () => {
+    await runCommand("list orders", async () => {
+      throw new CliError("Marketplace ID is required.", EXIT.USAGE);
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Marketplace ID is required.");
+    expect(processExitSpy).toHaveBeenCalledWith(EXIT.USAGE);
+  });
+
+  it("CliError defaults to the usage exit code", () => {
+    expect(new CliError("bad input").exitCode).toBe(EXIT.USAGE);
+  });
+
+  it("exits with the auth code for auth errors", async () => {
+    await runCommand("list orders", async () => {
+      throw spApiError({ code: "Unauthorized", message: "Access denied." });
+    });
+    expect(processExitSpy).toHaveBeenCalledWith(EXIT.AUTH);
+  });
+
+  it("uses distinct codes for failure, usage, and auth", () => {
+    expect(new Set([EXIT.FAILURE, EXIT.USAGE, EXIT.AUTH]).size).toBe(3);
+    expect(EXIT.FAILURE).toBe(1);
   });
 });

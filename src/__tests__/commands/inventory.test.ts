@@ -140,6 +140,24 @@ describe("inventory commands", () => {
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("7"));
   });
 
+  it("inventory list --all follows pagination.nextToken", async () => {
+    mockCallAPI
+      .mockResolvedValueOnce({ inventorySummaries: [{ asin: "A1" }], pagination: { nextToken: "n1" } })
+      .mockResolvedValueOnce({ inventorySummaries: [{ asin: "A2" }] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerInventoryCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "inventory", "list", "--all", "--json"]);
+
+    expect(mockCallAPI).toHaveBeenCalledTimes(2);
+    expect(mockCallAPI).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ nextToken: "n1" }) })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify([{ asin: "A1" }, { asin: "A2" }], null, 2));
+  });
+
   it("inventory list handles API errors gracefully", async () => {
     mockCallAPI.mockRejectedValueOnce(new Error("API Error"));
 

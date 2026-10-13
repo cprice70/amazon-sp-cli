@@ -75,6 +75,38 @@ describe("catalog commands", () => {
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(item, null, 2));
   });
 
+  it("catalog search --all follows pagination.nextToken with pageToken", async () => {
+    mockCallAPI
+      .mockResolvedValueOnce({ items: [{ asin: "B1" }], pagination: { nextToken: "p1" } })
+      .mockResolvedValueOnce({ items: [{ asin: "B2" }] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerCatalogCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "catalog", "search", "--query", "widget", "--all", "--json"]);
+
+    expect(mockCallAPI).toHaveBeenCalledTimes(2);
+    expect(mockCallAPI).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ pageToken: "p1" }) })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify([{ asin: "B1" }, { asin: "B2" }], null, 2));
+  });
+
+  it("catalog search --limit sets pageSize capped at 20", async () => {
+    mockCallAPI.mockResolvedValueOnce({ items: [] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerCatalogCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "catalog", "search", "--query", "widget", "--limit", "50"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ pageSize: 20 }) })
+    );
+  });
+
   it("catalog search handles API errors gracefully", async () => {
     mockCallAPI.mockRejectedValueOnce(new Error("API Error"));
 

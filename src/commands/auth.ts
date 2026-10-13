@@ -1,7 +1,7 @@
 import readline from "readline/promises";
-import https from "https";
 import { Command } from "commander";
 import { loadConfig, saveConfig, deleteConfig, getConfigPath, Config } from "../config.js";
+import { createClient } from "../sp-client.js";
 import { printSuccess, printError, printWarning } from "../output.js";
 
 function maskSecret(value: string | undefined): string {
@@ -10,74 +10,29 @@ function maskSecret(value: string | undefined): string {
   return value.slice(0, 4) + "****" + value.slice(-4);
 }
 
-async function fetchJson(options: https.RequestOptions, body?: string): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch {
-          reject(new Error(`Failed to parse response: ${data}`));
-        }
-      });
-    });
-    req.on("error", reject);
-    if (body) req.write(body);
-    req.end();
-  });
+interface MarketplaceParticipation {
+  marketplace?: { name?: string };
+  storeName?: string;
 }
 
+/**
+ * Derive the SP-API seller ID from getMarketplaceParticipations. The ID is
+ * embedded in the "Invoicing Shadow Marketplace" storeName as
+ * "Invoicing_<number>_<sellerID>". Any failure (bad credentials, network,
+ * no shadow marketplace) returns undefined so login can fall back to a prompt.
+ */
 async function detectSellerId(config: Partial<Config>): Promise<string | undefined> {
   try {
-    // Get LWA access token
-    const tokenBody = JSON.stringify({
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      grant_type: "refresh_token",
-      refresh_token: config.refreshToken,
-    });
-    const tokenRes = (await fetchJson(
-      {
-        method: "POST",
-        hostname: "api.amazon.com",
-        path: "/auth/o2/token",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(tokenBody),
-        },
-      },
-      tokenBody
-    )) as { access_token?: string };
+    const client = createClient(config);
+    const participations = (await client.callAPI({
+      operation: "getMarketplaceParticipations",
+      endpoint: "sellers",
+      options: { version: "v1" },
+    })) as unknown as MarketplaceParticipation[];
 
-    if (!tokenRes.access_token) return undefined;
-
-    // Determine API endpoint based on region
-    const region = config.region ?? "na";
-    const hostname = `sellingpartnerapi-${region}.amazon.com`;
-    const now = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, "");
-
-    const participationsRes = (await fetchJson({
-      method: "GET",
-      hostname,
-      path: "/sellers/v1/marketplaceParticipations",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        host: hostname,
-        "x-amz-access-token": tokenRes.access_token,
-        "x-amz-date": now,
-      },
-    })) as {
-      payload?: Array<{ marketplace: { name: string }; storeName: string }>;
-    };
-
-    const entries = participationsRes.payload ?? [];
-    for (const entry of entries) {
-      // The SP-API seller ID is embedded in the Invoicing Shadow Marketplace storeName
-      // Format: "Invoicing_<number>_<sellerID>"
-      if (entry.marketplace.name.includes("Invoicing Shadow")) {
-        const match = entry.storeName.match(/Invoicing_\d+_([A-Z0-9]+)$/);
+    for (const entry of participations ?? []) {
+      if (entry.marketplace?.name?.includes("Invoicing Shadow")) {
+        const match = entry.storeName?.match(/Invoicing_\d+_([A-Z0-9]+)$/);
         if (match) return match[1];
       }
     }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
 import { registerOrdersCommands } from "../../commands/orders.js";
+import { EXIT } from "../../errors.js";
 
 describe("orders commands", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
@@ -48,6 +49,108 @@ describe("orders commands", () => {
       expect.objectContaining({ operation: "getOrders", options: { version: "v0" } })
     );
     expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it("orders list --all follows NextToken across pages", async () => {
+    mockCallAPI
+      .mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "1" }], NextToken: "tok1" })
+      .mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "2" }] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list", "--all", "--json"]);
+
+    expect(mockCallAPI).toHaveBeenCalledTimes(2);
+    expect(mockCallAPI).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ NextToken: "tok1" }) })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify([{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }], null, 2)
+    );
+  });
+
+  it("orders list fetches a single page without --all even when NextToken is present", async () => {
+    mockCallAPI.mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "1" }], NextToken: "tok1" });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list", "--json"]);
+
+    expect(mockCallAPI).toHaveBeenCalledTimes(1);
+  });
+
+  it("orders list --limit sets MaxResultsPerPage and truncates results", async () => {
+    mockCallAPI
+      .mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }], NextToken: "tok1" })
+      .mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "3" }, { AmazonOrderId: "4" }] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list", "--limit", "3", "--json"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ MaxResultsPerPage: 3 }) })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify([{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }, { AmazonOrderId: "3" }], null, 2)
+    );
+  });
+
+  it("orders list caps MaxResultsPerPage at the API maximum of 100", async () => {
+    mockCallAPI.mockResolvedValueOnce({ Orders: [] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list", "--limit", "250"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ MaxResultsPerPage: 100 }) })
+    );
+  });
+
+  it("orders list rejects a non-positive --limit", async () => {
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await expect(
+      program.parseAsync(["node", "test", "orders", "list", "--limit", "0"])
+    ).rejects.toThrow(/positive integer/);
+    expect(mockCallAPI).not.toHaveBeenCalled();
+  });
+
+  it("orders list passes OrderTotal currency through to the table", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      Orders: [{ AmazonOrderId: "1", OrderStatus: "SHIPPED", OrderTotal: { Amount: "12.50", CurrencyCode: "EUR" } }],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list"]);
+
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("€12.50"));
+  });
+
+  it("orders list exits with the auth code on a 401", async () => {
+    mockCallAPI.mockRejectedValueOnce(new Error("401 Unauthorized"));
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list"]);
+
+    expect(processExitSpy).toHaveBeenCalledWith(EXIT.AUTH);
   });
 
   it("orders get rejects the unused --marketplace option", async () => {
