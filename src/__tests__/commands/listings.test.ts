@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
 import { registerListingsCommands } from "../../commands/listings.js";
+import { EXIT } from "../../errors.js";
 
 describe("listings commands", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
@@ -110,6 +111,38 @@ describe("listings commands", () => {
       expect.objectContaining({
         query: expect.objectContaining({ pageSize: expect.anything() }),
       })
+    );
+  });
+
+  it("listings search --all follows pagination.nextToken with pageToken", async () => {
+    mockCallAPI
+      .mockResolvedValueOnce({ items: [{ sku: "S1" }], pagination: { nextToken: "p1" } })
+      .mockResolvedValueOnce({ items: [{ sku: "S2" }] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "search", "--all", "--json"]);
+
+    expect(mockCallAPI).toHaveBeenCalledTimes(2);
+    expect(mockCallAPI).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ pageToken: "p1" }) })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify([{ sku: "S1" }, { sku: "S2" }], null, 2));
+  });
+
+  it("listings search --limit sets pageSize capped at 20", async () => {
+    mockCallAPI.mockResolvedValueOnce({ items: [] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
+
+    await program.parseAsync(["node", "test", "listings", "search", "--limit", "99"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ pageSize: 20 }) })
     );
   });
 
@@ -397,29 +430,18 @@ describe("listings commands", () => {
   });
 
   it("listings patch rejects invalid JSON body without calling API", async () => {
-    // process.exit is mocked to throw here so execution halts after printError
-    // (otherwise the mocked exit is a no-op and callAPI would be called with
-    // parsedBody=undefined since the inner catch never assigned it)
-    processExitSpy.mockImplementationOnce(() => {
-      throw new Error("process.exit");
-    });
-
     const program = new Command();
     program.exitOverride();
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
-    try {
-      await program.parseAsync([
-        "node", "test", "listings", "patch",
-        "--sku", "SKU1",
-        "--body", "not-json",
-      ]);
-    } catch {
-      // absorb the thrown process.exit error
-    }
+    await program.parseAsync([
+      "node", "test", "listings", "patch",
+      "--sku", "SKU1",
+      "--body", "not-json",
+    ]);
 
-    expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid JSON"));
+    expect(processExitSpy).toHaveBeenCalledWith(EXIT.USAGE);
     expect(mockCallAPI).not.toHaveBeenCalled();
   });
 
@@ -543,28 +565,18 @@ describe("listings commands", () => {
   });
 
   it("listings create rejects invalid JSON body without calling API", async () => {
-    processExitSpy.mockImplementationOnce(() => {
-      throw new Error("process.exit");
-    });
-
     const program = new Command();
     program.exitOverride();
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
-    try {
-      await program.parseAsync([
-        "node", "test", "listings", "create",
-        "--sku", "SKU1",
-        "--body", "not-json",
-      ]);
-    } catch {
-      // absorb the thrown process.exit error
-    }
+    await program.parseAsync([
+      "node", "test", "listings", "create",
+      "--sku", "SKU1",
+      "--body", "not-json",
+    ]);
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Invalid JSON provided for --body")
-    );
-    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid JSON"));
+    expect(processExitSpy).toHaveBeenCalledWith(EXIT.USAGE);
     expect(mockCallAPI).not.toHaveBeenCalled();
   });
 

@@ -31,7 +31,11 @@ node build/index.js <command>
 
 **SP client** (`src/sp-client.ts`): Thin wrapper around the `amazon-sp-api` `SellingPartner` class. Required because `amazon-sp-api` is CJS-only, so it's loaded via `createRequire`. All API calls go through `client.callAPI({ operation, endpoint, options, path, query, body })`.
 
-**Command modules** (`src/commands/`): Each module exports a `register*Commands(program, client, ...)` function. Commands follow the pattern: resolve marketplace/seller IDs, call `client.callAPI(...)`, then render table or JSON based on `--json` flag. All SP-API calls use explicit version strings (e.g., `"2021-08-01"`).
+**Command modules** (`src/commands/`): Each module exports a `register*Commands(program, client, ...)` function. Every action body is wrapped in `runCommand(label, async () => { ... })` from `src/errors.ts`, which owns all error printing and `process.exit` calls. Inside, commands resolve marketplace/seller IDs, call `client.callAPI(...)`, then render table or JSON based on `--json` flag. All SP-API calls use explicit version strings (e.g., `"2021-08-01"`).
+
+**Errors and exit codes** (`src/errors.ts`): Throw `CliError(message, exitCode)` for user-facing input problems; `runCommand` prints it verbatim. API errors are formatted with `formatApiError` and auth failures detected by `isAuthError`. Exit codes live in `EXIT` (`FAILURE`=1, `USAGE`=2, `AUTH`=3). Don't call `process.exit` from command bodies.
+
+**Pagination** (`src/paginate.ts`): List commands fetch pages through `collectPages(fetchPage, { all, limit })`. `fetchPage(nextToken)` returns `{ items, nextToken }`; the helper handles single-page default, `--all`, and `--limit` truncation. Use `parseLimit` as the commander argParser for `--limit` and `pageSizeFor(limit, apiMax)` for the per-API page-size cap.
 
 **Output** (`src/output.ts`): Centralized rendering — `printTable`, `printJson`, `printSuccess`, `printError`, `printWarning`, `colorState`, `formatCurrency`.
 

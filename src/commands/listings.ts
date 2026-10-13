@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
-import { printTable, printJson, printError } from "../output.js";
-import { runCommand } from "../errors.js";
+import { printTable, printJson } from "../output.js";
+import { CliError, runCommand } from "../errors.js";
+import { collectPages, parseLimit, pageSizeFor } from "../paginate.js";
 
 interface ListingsSummary {
   marketplaceId: string;
@@ -22,11 +23,36 @@ interface ListingsItem {
   productTypes?: unknown;
 }
 
+interface SearchListingsItemRow {
+  sku: string;
+  summaries?: ListingsSummary[];
+}
+
 interface SearchListingsItemsResult {
-  items: Array<{
-    sku: string;
-    summaries?: ListingsSummary[];
-  }>;
+  items?: SearchListingsItemRow[];
+  pagination?: { nextToken?: string };
+}
+
+/** listingsItems 2021-08-01 searchListingsItems accepts pageSize of 1-20. */
+const LISTINGS_PAGE_MAX = 20;
+
+const LISTINGS_INCLUDED_DATA = [
+  "summaries",
+  "attributes",
+  "issues",
+  "offers",
+  "fulfillmentAvailability",
+  "procurement",
+  "relationships",
+  "productTypes",
+];
+
+function parseJsonBody(body: string): unknown {
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new CliError("Invalid JSON provided for --body");
+  }
 }
 
 interface PatchListingsItemResult {
@@ -95,38 +121,42 @@ export function registerListingsCommands(
     .command("search")
     .description("Search listings items")
     .option("--sku <sku>", "Filter by SKU")
+    .option("--limit <n>", "Maximum number of items to return", parseLimit)
+    .option("--all", "Fetch every page of results")
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--seller <id>", "Seller ID override")
     .option("--json", "Output raw JSON instead of table")
     .action(
-      async (opts: { sku?: string; marketplace?: string; seller?: string; json?: boolean }) => {
+      async (opts: {
+        sku?: string;
+        limit?: number;
+        all?: boolean;
+        marketplace?: string;
+        seller?: string;
+        json?: boolean;
+      }) => {
         await runCommand("search listings", async () => {
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
-          const result = (await client.callAPI({
-            operation: "searchListingsItems",
-            endpoint: "listingsItems",
-            options: { version: "2021-08-01" },
-            path: { sellerId },
-            query: {
-              marketplaceIds: [marketplaceId],
-              identifiers: opts.sku ? [opts.sku] : undefined,
-              identifiersType: opts.sku ? "SKU" : undefined,
-              includedData: [
-                "summaries",
-                "attributes",
-                "issues",
-                "offers",
-                "fulfillmentAvailability",
-                "procurement",
-                "relationships",
-                "productTypes",
-              ],
-            },
-          })) as SearchListingsItemsResult;
-
-          const items = result.items ?? [];
+          const items = await collectPages<SearchListingsItemRow>(async (pageToken) => {
+            const result = (await client.callAPI({
+              operation: "searchListingsItems",
+              endpoint: "listingsItems",
+              options: { version: "2021-08-01" },
+              path: { sellerId },
+              query: {
+                marketplaceIds: [marketplaceId],
+                identifiers: opts.sku ? [opts.sku] : undefined,
+                identifiersType: opts.sku ? "SKU" : undefined,
+                // pageSize is rejected when searching by identifier.
+                pageSize: opts.sku ? undefined : pageSizeFor(opts.limit, LISTINGS_PAGE_MAX),
+                pageToken,
+                includedData: LISTINGS_INCLUDED_DATA,
+              },
+            })) as SearchListingsItemsResult;
+            return { items: result.items, nextToken: result.pagination?.nextToken };
+          }, opts);
 
           if (opts.json) {
             printJson(items);
@@ -173,16 +203,7 @@ export function registerListingsCommands(
             path: { sellerId, sku: opts.sku },
             query: {
               marketplaceIds: [marketplaceId],
-              includedData: [
-                "summaries",
-                "attributes",
-                "issues",
-                "offers",
-                "fulfillmentAvailability",
-                "procurement",
-                "relationships",
-                "productTypes",
-              ],
+              includedData: LISTINGS_INCLUDED_DATA,
             },
           })) as ListingsItem;
 
@@ -243,13 +264,7 @@ export function registerListingsCommands(
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
-          let parsedBody: unknown;
-          try {
-            parsedBody = JSON.parse(opts.body);
-          } catch {
-            printError("Invalid JSON provided for --body");
-            process.exit(1);
-          }
+          const parsedBody = parseJsonBody(opts.body);
 
           const result = (await client.callAPI({
             operation: "patchListingsItem",
@@ -299,13 +314,7 @@ export function registerListingsCommands(
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
-          let parsedBody: unknown;
-          try {
-            parsedBody = JSON.parse(opts.body);
-          } catch {
-            printError("Invalid JSON provided for --body");
-            process.exit(1);
-          }
+          const parsedBody = parseJsonBody(opts.body);
 
           const result = (await client.callAPI({
             operation: "putListingsItem",
