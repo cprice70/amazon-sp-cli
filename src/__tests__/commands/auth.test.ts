@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
-import { EventEmitter } from "events";
 import { registerAuthCommands } from "../../commands/auth.js";
 import { loadConfig, saveConfig, deleteConfig } from "../../config.js";
 import readline from "readline/promises";
-import https from "https";
+import { createClient } from "../../sp-client.js";
 
 vi.mock("../../config.js", () => ({
   loadConfig: vi.fn(),
@@ -17,8 +16,8 @@ vi.mock("readline/promises", () => ({
   default: { createInterface: vi.fn() },
 }));
 
-vi.mock("https", () => ({
-  default: { request: vi.fn() },
+vi.mock("../../sp-client.js", () => ({
+  createClient: vi.fn(),
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,23 +32,12 @@ function mockReadline(answers: string[]) {
   return rl;
 }
 
-// detectSellerId calls https.request(options, callback). The callback receives
-// a response-like EventEmitter that emits "data" and "end" events.
-function mockHttpsRequest(responses: object[]) {
-  let call = 0;
-  (https.request as ReturnType<typeof vi.fn>).mockImplementation(
-    (_opts: unknown, callback: (res: EventEmitter) => void) => {
-      const res = new EventEmitter();
-      const body = JSON.stringify(responses[call++] ?? {});
-      const req = { on: vi.fn(), write: vi.fn(), end: vi.fn() };
-      process.nextTick(() => {
-        callback(res);
-        res.emit("data", body);
-        res.emit("end");
-      });
-      return req;
-    }
-  );
+// detectSellerId builds an SP client from the freshly entered credentials and
+// calls getMarketplaceParticipations; the library unwraps `payload` for us.
+const mockCallAPI = vi.fn();
+function mockParticipations(participations: object[]) {
+  mockCallAPI.mockResolvedValue(participations);
+  (createClient as ReturnType<typeof vi.fn>).mockReturnValue({ callAPI: mockCallAPI });
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -71,7 +59,8 @@ describe("auth commands", () => {
     (saveConfig as ReturnType<typeof vi.fn>).mockReset();
     (deleteConfig as ReturnType<typeof vi.fn>).mockReset();
     (readline.createInterface as ReturnType<typeof vi.fn>).mockReset();
-    (https.request as ReturnType<typeof vi.fn>).mockReset();
+    mockCallAPI.mockReset();
+    (createClient as ReturnType<typeof vi.fn>).mockReset();
   });
 
   afterEach(() => {
@@ -169,10 +158,7 @@ describe("auth commands", () => {
 
   it("auth login saves config with auto-detected seller ID", async () => {
     mockReadline(["my-client-id", "my-secret", "my-token", "na", "ATVPDKIKX0DER", "n"]);
-    mockHttpsRequest([
-      { access_token: "tok" },
-      { payload: [{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }] },
-    ]);
+    mockParticipations([{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }]);
 
     const program = new Command();
     program.exitOverride();
@@ -190,6 +176,26 @@ describe("auth commands", () => {
       })
     );
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Config saved"));
+    expect(createClient).toHaveBeenCalledWith(
+      expect.objectContaining({ clientId: "my-client-id", clientSecret: "my-secret", refreshToken: "my-token", region: "na" })
+    );
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "getMarketplaceParticipations", endpoint: "sellers", options: { version: "v1" } })
+    );
+  });
+
+  it("auth login falls back to a manual seller ID when the participations call throws", async () => {
+    mockReadline(["my-client-id", "my-secret", "my-token", "na", "", "n", "MANUAL999"]);
+    mockCallAPI.mockRejectedValue(new Error("Unauthorized"));
+    (createClient as ReturnType<typeof vi.fn>).mockReturnValue({ callAPI: mockCallAPI });
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "login"]);
+
+    expect(saveConfig).toHaveBeenCalledWith(expect.objectContaining({ sellerId: "MANUAL999" }));
   });
 
   it("auth login rejects empty Client ID", async () => {
@@ -240,10 +246,7 @@ describe("auth commands", () => {
 
   it("auth login prompts for manual seller ID when auto-detection fails", async () => {
     mockReadline(["my-client-id", "my-secret", "my-token", "na", "", "n", "MANUAL123"]);
-    mockHttpsRequest([
-      { access_token: "tok" },
-      { payload: [] },
-    ]);
+    mockParticipations([]);
 
     const program = new Command();
     program.exitOverride();
@@ -258,10 +261,7 @@ describe("auth commands", () => {
 
   it("auth login handles saveConfig error", async () => {
     mockReadline(["my-client-id", "my-secret", "my-token", "na", "ATVPDKIKX0DER", "n"]);
-    mockHttpsRequest([
-      { access_token: "tok" },
-      { payload: [{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }] },
-    ]);
+    mockParticipations([{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }]);
     (saveConfig as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error("write error");
     });
