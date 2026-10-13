@@ -69,6 +69,14 @@ describe("config", () => {
     expect(config.region).toBe("eu");
   });
 
+  it("saveConfig writes the config file readable only by the owner", () => {
+    saveConfig({ clientId: "test", clientSecret: "secret" });
+    const fileMode = fs.statSync(getConfigPath()).mode & 0o777;
+    const dirMode = fs.statSync(path.dirname(getConfigPath())).mode & 0o777;
+    expect(fileMode).toBe(0o600);
+    expect(dirMode).toBe(0o700);
+  });
+
   it("deleteConfig removes the config file", () => {
     saveConfig({ clientId: "test" });
     expect(fs.existsSync(getConfigPath())).toBe(true);
