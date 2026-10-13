@@ -49,9 +49,16 @@ export function colorState(state: string): string {
   }
 }
 
-export function formatCurrency(amount: number | string | undefined): string {
-  if (amount === undefined || amount === null) return "$0.00";
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (isNaN(num)) return "$0.00";
-  return `$${num.toFixed(2)}`;
+export function formatCurrency(amount: number | string | undefined, currencyCode?: string): string {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount ?? 0;
+  const value = Number.isNaN(num) ? 0 : num;
+
+  if (currencyCode) {
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: currencyCode }).format(value);
+    } catch {
+      // Unknown ISO code (RangeError) — fall through to the plain format.
+    }
+  }
+  return `$${value.toFixed(2)}`;
 }

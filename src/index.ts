@@ -3,7 +3,7 @@ import { createRequire } from "module";
 import { program } from "commander";
 import { loadConfig } from "./config.js";
 import { createClient } from "./sp-client.js";
-import { printError } from "./output.js";
+import { CliError, EXIT } from "./errors.js";
 import { registerAuthCommands } from "./commands/auth.js";
 import { registerOrdersCommands } from "./commands/orders.js";
 import { registerInventoryCommands } from "./commands/inventory.js";
@@ -37,26 +37,26 @@ function resolveMarketplaceId(opts: { marketplace?: string }): string {
   const marketplaceId = opts.marketplace ?? config.marketplaceId;
 
   if (!marketplaceId) {
-    printError(
+    throw new CliError(
       'Marketplace ID is required. Use --marketplace <id>, set AMAZON_SP_MARKETPLACE_ID, or run "amazon-sp auth login" to set a default.'
     );
-    process.exit(1);
   }
 
   return marketplaceId;
 }
 
-// Create a Proxy that throws a helpful error if client wasn't created.
+// Create a Proxy that throws a helpful CliError if client wasn't created.
+// Commands run inside runCommand, which turns it into a message + exit code.
 // Methods must be bound to `client` so that `this` inside callAPI etc.
 // refers to the real client instance (not the proxy), ensuring state like
 // _access_token is read/written on the correct object.
 const clientProxy = new Proxy({} as ReturnType<typeof createClient>, {
   get(_target, prop) {
     if (!client) {
-      printError(
-        'Not authenticated. Run "amazon-sp auth login" to configure credentials.'
+      throw new CliError(
+        'Not authenticated. Run "amazon-sp auth login" to configure credentials.',
+        EXIT.AUTH
       );
-      process.exit(1);
     }
     const val = (client as any)[prop as string];
     return typeof val === "function" ? val.bind(client) : val;
@@ -66,10 +66,9 @@ const clientProxy = new Proxy({} as ReturnType<typeof createClient>, {
 function resolveSellerId(opts: { seller?: string }): string {
   const sellerId = opts.seller ?? config.sellerId;
   if (!sellerId) {
-    printError(
+    throw new CliError(
       'Seller ID is required. Use --seller <id>, set AMAZON_SP_SELLER_ID, or run "amazon-sp auth login" to set a default.'
     );
-    process.exit(1);
   }
   return sellerId;
 }

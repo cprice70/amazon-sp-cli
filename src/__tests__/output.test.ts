@@ -44,6 +44,17 @@ describe("output", () => {
     expect(call).toContain("Watch out");
   });
 
+  it("formatCurrency uses the currency code when given", () => {
+    expect(formatCurrency("29.99", "USD")).toBe("$29.99");
+    expect(formatCurrency("29.99", "EUR")).toBe("€29.99");
+    expect(formatCurrency("29.99", "GBP")).toBe("£29.99");
+    expect(formatCurrency("2999", "JPY")).toBe("¥2,999");
+  });
+
+  it("formatCurrency falls back to a dollar sign for an unknown currency code", () => {
+    expect(formatCurrency("5", "NOPE")).toBe("$5.00");
+  });
+
   it("formatCurrency formats numbers correctly", () => {
     expect(formatCurrency(1.5)).toBe("$1.50");
     expect(formatCurrency(0)).toBe("$0.00");
