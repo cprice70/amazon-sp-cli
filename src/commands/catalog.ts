@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson, printError } from "../output.js";
+import { formatApiError, isAuthError } from "../errors.js";
 
 interface CatalogItemSummary {
   marketplaceId: string;
@@ -23,14 +24,6 @@ interface GetCatalogItemResult {
   asin: string;
   summaries?: CatalogItemSummary[];
   attributes?: Record<string, unknown>;
-}
-
-function isAuthError(err: unknown): boolean {
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase();
-    return msg.includes("401") || msg.includes("403") || msg.includes("unauthorized") || msg.includes("forbidden");
-  }
-  return false;
 }
 
 export function registerCatalogCommands(
@@ -82,7 +75,7 @@ export function registerCatalogCommands(
 
         printTable(["ASIN", "Title", "Brand"], rows);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = formatApiError(err);
         printError(`Failed to search catalog: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");
@@ -122,7 +115,7 @@ export function registerCatalogCommands(
         }
         console.log("");
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = formatApiError(err);
         printError(`Failed to get catalog item: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");

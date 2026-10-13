@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson, printError } from "../output.js";
+import { formatApiError, isAuthError } from "../errors.js";
 
 interface ListingsSummary {
   marketplaceId: string;
@@ -32,19 +33,6 @@ interface PatchListingsItemResult {
   status: string;
   submissionId?: string;
   issues?: Array<{ code: string; message: string; severity: string }>;
-}
-
-function isAuthError(err: unknown): boolean {
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase();
-    return (
-      msg.includes("401") ||
-      msg.includes("403") ||
-      msg.includes("unauthorized") ||
-      msg.includes("forbidden")
-    );
-  }
-  return false;
 }
 
 function formatListingDetail(item: ListingsItem, marketplaceId: string): void {
@@ -162,7 +150,7 @@ export function registerListingsCommands(
 
           printTable(["SKU", "ASIN", "Title", "Status"], rows);
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = formatApiError(err);
           printError(`Failed to search listings: ${message}`);
           if (isAuthError(err)) {
             printError("Hint: run 'auth login' to re-authenticate.");
@@ -212,7 +200,7 @@ export function registerListingsCommands(
 
           formatListingDetail(result, marketplaceId);
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = formatApiError(err);
           printError(`Failed to get listings item: ${message}`);
           if (isAuthError(err)) {
             printError("Hint: run 'auth login' to re-authenticate.");
@@ -247,7 +235,7 @@ export function registerListingsCommands(
             : "deleted";
         console.log(`Result: ${status}`);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = formatApiError(err);
         printError(`Failed to delete listings item: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");
@@ -309,7 +297,7 @@ export function registerListingsCommands(
             }
           }
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = formatApiError(err);
           printError(`Failed to patch listings item: ${message}`);
           if (isAuthError(err)) {
             printError("Hint: run 'auth login' to re-authenticate.");
@@ -372,7 +360,7 @@ export function registerListingsCommands(
             }
           }
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = formatApiError(err);
           printError(`Failed to create listings item: ${message}`);
           if (isAuthError(err)) {
             printError("Hint: run 'auth login' to re-authenticate.");
