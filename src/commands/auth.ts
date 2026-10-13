@@ -1,6 +1,7 @@
 import readline from "readline/promises";
-import { Command } from "commander";
-import { loadConfig, saveConfig, deleteConfig, getConfigPath, Config } from "../config.js";
+import type { Command } from "commander";
+import type { Config } from "../config.js";
+import { loadConfig, saveConfig, deleteConfig, getConfigPath } from "../config.js";
 import { createClient } from "../sp-client.js";
 import { printSuccess, printError, printWarning } from "../output.js";
 

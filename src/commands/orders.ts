@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson, colorState, formatCurrency } from "../output.js";
 import { runCommand } from "../errors.js";
@@ -103,8 +103,7 @@ export function registerOrdersCommands(
           }
 
           const rows = orderList.map((order) => {
-            const items =
-              (order.NumberOfItemsShipped ?? 0) + (order.NumberOfItemsUnshipped ?? 0);
+            const items = (order.NumberOfItemsShipped ?? 0) + (order.NumberOfItemsUnshipped ?? 0);
             const total = formatCurrency(order.OrderTotal?.Amount, order.OrderTotal?.CurrencyCode);
             return [
               order.AmazonOrderId ?? "",
@@ -127,12 +126,12 @@ export function registerOrdersCommands(
     .option("--json", "Output raw JSON")
     .action(async (opts: { order: string; json?: boolean }) => {
       await runCommand("get order", async () => {
-        const result = await client.callAPI({
+        const result = (await client.callAPI({
           operation: "getOrder",
           endpoint: "orders",
           options: { version: "v0" },
           path: { orderId: opts.order },
-        }) as OrderRecord;
+        })) as OrderRecord;
 
         if (opts.json) {
           printJson(result);
@@ -157,12 +156,12 @@ export function registerOrdersCommands(
     .option("--json", "Output raw JSON instead of table")
     .action(async (opts: { order: string; json?: boolean }) => {
       await runCommand("get order items", async () => {
-        const result = await client.callAPI({
+        const result = (await client.callAPI({
           operation: "getOrderItems",
           endpoint: "orders",
           options: { version: "v0" },
           path: { orderId: opts.order },
-        }) as GetOrderItemsResult;
+        })) as GetOrderItemsResult;
 
         const items = result.OrderItems ?? [];
 

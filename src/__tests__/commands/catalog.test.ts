@@ -28,7 +28,9 @@ describe("catalog commands", () => {
       items: [
         {
           asin: "B001234567",
-          summaries: [{ marketplaceId: "ATVPDKIKX0DER", itemName: "Test Widget", brand: "TestBrand" }],
+          summaries: [
+            { marketplaceId: "ATVPDKIKX0DER", itemName: "Test Widget", brand: "TestBrand" },
+          ],
         },
       ],
     });
@@ -40,7 +42,10 @@ describe("catalog commands", () => {
     await program.parseAsync(["node", "test", "catalog", "search", "--query", "widget"]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "searchCatalogItems", options: { version: "2022-04-01" } })
+      expect.objectContaining({
+        operation: "searchCatalogItems",
+        options: { version: "2022-04-01" },
+      })
     );
     expect(consoleSpy).toHaveBeenCalled();
   });
@@ -84,13 +89,24 @@ describe("catalog commands", () => {
     program.exitOverride();
     registerCatalogCommands(program, mockClient, resolveMarketplaceId);
 
-    await program.parseAsync(["node", "test", "catalog", "search", "--query", "widget", "--all", "--json"]);
+    await program.parseAsync([
+      "node",
+      "test",
+      "catalog",
+      "search",
+      "--query",
+      "widget",
+      "--all",
+      "--json",
+    ]);
 
     expect(mockCallAPI).toHaveBeenCalledTimes(2);
     expect(mockCallAPI).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ pageToken: "p1" }) })
     );
-    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify([{ asin: "B1" }, { asin: "B2" }], null, 2));
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify([{ asin: "B1" }, { asin: "B2" }], null, 2)
+    );
   });
 
   it("catalog search --limit sets pageSize capped at 20", async () => {
@@ -100,7 +116,16 @@ describe("catalog commands", () => {
     program.exitOverride();
     registerCatalogCommands(program, mockClient, resolveMarketplaceId);
 
-    await program.parseAsync(["node", "test", "catalog", "search", "--query", "widget", "--limit", "50"]);
+    await program.parseAsync([
+      "node",
+      "test",
+      "catalog",
+      "search",
+      "--query",
+      "widget",
+      "--limit",
+      "50",
+    ]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ pageSize: 20 }) })

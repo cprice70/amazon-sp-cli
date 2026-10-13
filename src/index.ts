@@ -15,10 +15,7 @@ const { version } = require("../package.json") as { version: string };
 
 const config = loadConfig();
 
-program
-  .name("amazon-sp")
-  .description("Amazon Selling Partner API CLI")
-  .version(version);
+program.name("amazon-sp").description("Amazon Selling Partner API CLI").version(version);
 
 // Auth commands don't need a client
 registerAuthCommands(program);
@@ -58,7 +55,7 @@ const clientProxy = new Proxy({} as ReturnType<typeof createClient>, {
         EXIT.AUTH
       );
     }
-    const val = (client as any)[prop as string];
+    const val = (client as unknown as Record<string | symbol, unknown>)[prop];
     return typeof val === "function" ? val.bind(client) : val;
   },
 });

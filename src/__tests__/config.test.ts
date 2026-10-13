@@ -22,7 +22,9 @@ describe("config", () => {
     vi.restoreAllMocks();
     try {
       fs.rmSync(testConfigDir, { recursive: true, force: true });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   });
 
   it("getConfigPath returns correct path", () => {

@@ -30,11 +30,15 @@ export function loadConfig(): Partial<Config> {
   const config: Partial<Config> = { ...fileConfig };
 
   if (process.env.AMAZON_SP_CLIENT_ID) config.clientId = process.env.AMAZON_SP_CLIENT_ID;
-  if (process.env.AMAZON_SP_CLIENT_SECRET) config.clientSecret = process.env.AMAZON_SP_CLIENT_SECRET;
-  if (process.env.AMAZON_SP_REFRESH_TOKEN) config.refreshToken = process.env.AMAZON_SP_REFRESH_TOKEN;
-  if (process.env.AMAZON_SP_REGION) config.region = process.env.AMAZON_SP_REGION as "na" | "eu" | "fe";
+  if (process.env.AMAZON_SP_CLIENT_SECRET)
+    config.clientSecret = process.env.AMAZON_SP_CLIENT_SECRET;
+  if (process.env.AMAZON_SP_REFRESH_TOKEN)
+    config.refreshToken = process.env.AMAZON_SP_REFRESH_TOKEN;
+  if (process.env.AMAZON_SP_REGION)
+    config.region = process.env.AMAZON_SP_REGION as "na" | "eu" | "fe";
   if (process.env.AMAZON_SP_SANDBOX) config.sandbox = process.env.AMAZON_SP_SANDBOX === "true";
-  if (process.env.AMAZON_SP_MARKETPLACE_ID) config.marketplaceId = process.env.AMAZON_SP_MARKETPLACE_ID;
+  if (process.env.AMAZON_SP_MARKETPLACE_ID)
+    config.marketplaceId = process.env.AMAZON_SP_MARKETPLACE_ID;
   if (process.env.AMAZON_SP_SELLER_ID) config.sellerId = process.env.AMAZON_SP_SELLER_ID;
 
   return config;

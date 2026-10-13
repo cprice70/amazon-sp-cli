@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson } from "../output.js";
 import { runCommand } from "../errors.js";
@@ -46,47 +46,51 @@ export function registerCatalogCommands(
     .option("--all", "Fetch every page of results")
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON instead of table")
-    .action(async (opts: { query: string; limit?: number; all?: boolean; marketplace?: string; json?: boolean }) => {
-      await runCommand("search catalog", async () => {
-        const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
+    .action(
+      async (opts: {
+        query: string;
+        limit?: number;
+        all?: boolean;
+        marketplace?: string;
+        json?: boolean;
+      }) => {
+        await runCommand("search catalog", async () => {
+          const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
-        const items = await collectPages<SearchCatalogItem>(async (pageToken) => {
-          const result = (await client.callAPI({
-            operation: "searchCatalogItems",
-            endpoint: "catalogItems",
-            options: { version: "2022-04-01" },
-            query: {
-              keywords: [opts.query],
-              marketplaceIds: [marketplaceId],
-              pageSize: pageSizeFor(opts.limit, CATALOG_PAGE_MAX),
-              pageToken,
-            },
-          })) as SearchCatalogItemsResult;
-          return { items: result.items, nextToken: result.pagination?.nextToken };
-        }, opts);
+          const items = await collectPages<SearchCatalogItem>(async (pageToken) => {
+            const result = (await client.callAPI({
+              operation: "searchCatalogItems",
+              endpoint: "catalogItems",
+              options: { version: "2022-04-01" },
+              query: {
+                keywords: [opts.query],
+                marketplaceIds: [marketplaceId],
+                pageSize: pageSizeFor(opts.limit, CATALOG_PAGE_MAX),
+                pageToken,
+              },
+            })) as SearchCatalogItemsResult;
+            return { items: result.items, nextToken: result.pagination?.nextToken };
+          }, opts);
 
-        if (opts.json) {
-          printJson(items);
-          return;
-        }
+          if (opts.json) {
+            printJson(items);
+            return;
+          }
 
-        if (items.length === 0) {
-          console.log("No catalog items found.");
-          return;
-        }
+          if (items.length === 0) {
+            console.log("No catalog items found.");
+            return;
+          }
 
-        const rows = items.map((item) => {
-          const summary = item.summaries?.find(s => s.marketplaceId === marketplaceId);
-          return [
-            item.asin,
-            summary?.itemName ?? "",
-            summary?.brand ?? "",
-          ];
+          const rows = items.map((item) => {
+            const summary = item.summaries?.find((s) => s.marketplaceId === marketplaceId);
+            return [item.asin, summary?.itemName ?? "", summary?.brand ?? ""];
+          });
+
+          printTable(["ASIN", "Title", "Brand"], rows);
         });
-
-        printTable(["ASIN", "Title", "Brand"], rows);
-      });
-    });
+      }
+    );
 
   catalog
     .command("get")
@@ -98,13 +102,13 @@ export function registerCatalogCommands(
       await runCommand("get catalog item", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
-        const result = await client.callAPI({
+        const result = (await client.callAPI({
           operation: "getCatalogItem",
           endpoint: "catalogItems",
           options: { version: "2022-04-01" },
           path: { asin: opts.asin },
           query: { marketplaceIds: [marketplaceId] },
-        }) as GetCatalogItemResult;
+        })) as GetCatalogItemResult;
 
         if (opts.json) {
           printJson(result);

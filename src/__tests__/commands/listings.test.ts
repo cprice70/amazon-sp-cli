@@ -33,7 +33,12 @@ describe("listings commands", () => {
         {
           sku: "SKU1",
           summaries: [
-            { marketplaceId: "ATVPDKIKX0DER", asin: "B001", itemName: "Widget", status: ["BUYABLE"] },
+            {
+              marketplaceId: "ATVPDKIKX0DER",
+              asin: "B001",
+              itemName: "Widget",
+              status: ["BUYABLE"],
+            },
           ],
         },
       ],
@@ -129,7 +134,9 @@ describe("listings commands", () => {
     expect(mockCallAPI).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ pageToken: "p1" }) })
     );
-    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify([{ sku: "S1" }, { sku: "S2" }], null, 2));
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify([{ sku: "S1" }, { sku: "S2" }], null, 2)
+    );
   });
 
   it("listings search --limit sets pageSize capped at 20", async () => {
@@ -169,9 +176,7 @@ describe("listings commands", () => {
     await program.parseAsync(["node", "test", "listings", "search"]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 
   // ── listings get ─────────────────────────────────────────────────────────
@@ -281,9 +286,7 @@ describe("listings commands", () => {
     await program.parseAsync(["node", "test", "listings", "get", "--sku", "SKU1"]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 
   // ── listings delete ──────────────────────────────────────────────────────
@@ -341,9 +344,7 @@ describe("listings commands", () => {
     await program.parseAsync(["node", "test", "listings", "delete", "--sku", "SKU1"]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 
   // ── listings patch ───────────────────────────────────────────────────────
@@ -356,9 +357,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", '{"patches":[]}',
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"patches":[]}',
     ]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
@@ -380,15 +386,18 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", '{"patches":[]}',
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"patches":[]}',
     ]);
 
     expect(consoleSpy).toHaveBeenCalledWith("Status: ACCEPTED");
-    expect(consoleSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("Submission ID")
-    );
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("Submission ID"));
   });
 
   it("listings patch prints issues when present", async () => {
@@ -402,9 +411,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", '{"patches":[]}',
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"patches":[]}',
     ]);
 
     // Issue line has 2 leading spaces (differs from `get` which uses 4)
@@ -420,9 +434,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", '{"patches":[]}',
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"patches":[]}',
       "--json",
     ]);
 
@@ -435,9 +454,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", "not-json",
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      "not-json",
     ]);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid JSON"));
@@ -453,9 +477,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", '{"patches":[]}',
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"patches":[]}',
     ]);
 
     expect(consoleErrorSpy).toHaveBeenCalled();
@@ -470,15 +499,18 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "patch",
-      "--sku", "SKU1",
-      "--body", '{"patches":[]}',
+      "node",
+      "test",
+      "listings",
+      "patch",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"patches":[]}',
     ]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 
   // ── listings create ───────────────────────────────────────────────────────
@@ -491,9 +523,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", '{"productType":"LUGGAGE","requirements":"LISTING"}',
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"productType":"LUGGAGE","requirements":"LISTING"}',
     ]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
@@ -516,15 +553,18 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", '{"productType":"LUGGAGE"}',
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"productType":"LUGGAGE"}',
     ]);
 
     expect(consoleSpy).toHaveBeenCalledWith("Status: ACCEPTED");
-    expect(consoleSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("Submission ID")
-    );
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("Submission ID"));
   });
 
   it("listings create prints issues when present", async () => {
@@ -538,9 +578,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", '{"productType":"LUGGAGE"}',
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"productType":"LUGGAGE"}',
     ]);
 
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[ERROR] ERR1: Bad value"));
@@ -555,9 +600,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", '{"productType":"LUGGAGE"}',
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"productType":"LUGGAGE"}',
       "--json",
     ]);
 
@@ -570,9 +620,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", "not-json",
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      "not-json",
     ]);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid JSON"));
@@ -588,9 +643,14 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", '{"productType":"LUGGAGE"}',
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"productType":"LUGGAGE"}',
     ]);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -607,14 +667,17 @@ describe("listings commands", () => {
     registerListingsCommands(program, mockClient, resolveMarketplaceId, resolveSellerId);
 
     await program.parseAsync([
-      "node", "test", "listings", "create",
-      "--sku", "SKU1",
-      "--body", '{"productType":"LUGGAGE"}',
+      "node",
+      "test",
+      "listings",
+      "create",
+      "--sku",
+      "SKU1",
+      "--body",
+      '{"productType":"LUGGAGE"}',
     ]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 });

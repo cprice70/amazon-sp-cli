@@ -85,7 +85,10 @@ describe("orders commands", () => {
 
   it("orders list --limit sets MaxResultsPerPage and truncates results", async () => {
     mockCallAPI
-      .mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }], NextToken: "tok1" })
+      .mockResolvedValueOnce({
+        Orders: [{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }],
+        NextToken: "tok1",
+      })
       .mockResolvedValueOnce({ Orders: [{ AmazonOrderId: "3" }, { AmazonOrderId: "4" }] });
 
     const program = new Command();
@@ -98,7 +101,11 @@ describe("orders commands", () => {
       expect.objectContaining({ query: expect.objectContaining({ MaxResultsPerPage: 3 }) })
     );
     expect(consoleSpy).toHaveBeenCalledWith(
-      JSON.stringify([{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }, { AmazonOrderId: "3" }], null, 2)
+      JSON.stringify(
+        [{ AmazonOrderId: "1" }, { AmazonOrderId: "2" }, { AmazonOrderId: "3" }],
+        null,
+        2
+      )
     );
   });
 
@@ -119,6 +126,7 @@ describe("orders commands", () => {
   it("orders list rejects a non-positive --limit", async () => {
     const program = new Command();
     program.exitOverride();
+    program.configureOutput({ writeErr: () => {} });
     registerOrdersCommands(program, mockClient, resolveMarketplaceId);
 
     await expect(
@@ -129,7 +137,13 @@ describe("orders commands", () => {
 
   it("orders list passes OrderTotal currency through to the table", async () => {
     mockCallAPI.mockResolvedValueOnce({
-      Orders: [{ AmazonOrderId: "1", OrderStatus: "SHIPPED", OrderTotal: { Amount: "12.50", CurrencyCode: "EUR" } }],
+      Orders: [
+        {
+          AmazonOrderId: "1",
+          OrderStatus: "SHIPPED",
+          OrderTotal: { Amount: "12.50", CurrencyCode: "EUR" },
+        },
+      ],
     });
 
     const program = new Command();
@@ -156,6 +170,7 @@ describe("orders commands", () => {
   it("orders get rejects the unused --marketplace option", async () => {
     const program = new Command();
     program.exitOverride();
+    program.configureOutput({ writeErr: () => {} });
     registerOrdersCommands(program, mockClient, resolveMarketplaceId);
 
     await expect(
@@ -257,7 +272,15 @@ describe("orders commands", () => {
     program.exitOverride();
     registerOrdersCommands(program, mockClient, resolveMarketplaceId);
 
-    await program.parseAsync(["node", "test", "orders", "items", "--order", "123-456-789", "--json"]);
+    await program.parseAsync([
+      "node",
+      "test",
+      "orders",
+      "items",
+      "--order",
+      "123-456-789",
+      "--json",
+    ]);
 
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(orderItems, null, 2));
   });
@@ -299,8 +322,6 @@ describe("orders commands", () => {
     await program.parseAsync(["node", "test", "orders", "items", "--order", "123-456-789"]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 });

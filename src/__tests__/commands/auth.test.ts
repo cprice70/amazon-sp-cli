@@ -158,7 +158,9 @@ describe("auth commands", () => {
 
   it("auth login saves config with auto-detected seller ID", async () => {
     mockReadline(["my-client-id", "my-secret", "my-token", "na", "ATVPDKIKX0DER", "n"]);
-    mockParticipations([{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }]);
+    mockParticipations([
+      { marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" },
+    ]);
 
     const program = new Command();
     program.exitOverride();
@@ -177,10 +179,19 @@ describe("auth commands", () => {
     );
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Config saved"));
     expect(createClient).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: "my-client-id", clientSecret: "my-secret", refreshToken: "my-token", region: "na" })
+      expect.objectContaining({
+        clientId: "my-client-id",
+        clientSecret: "my-secret",
+        refreshToken: "my-token",
+        region: "na",
+      })
     );
     expect(mockCallAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "getMarketplaceParticipations", endpoint: "sellers", options: { version: "v1" } })
+      expect.objectContaining({
+        operation: "getMarketplaceParticipations",
+        endpoint: "sellers",
+        options: { version: "v1" },
+      })
     );
   });
 
@@ -214,9 +225,7 @@ describe("auth commands", () => {
       // absorb the thrown process.exit error
     }
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Client ID is required")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("Client ID is required"));
     expect(processExitSpy).toHaveBeenCalledWith(1);
     expect(saveConfig).not.toHaveBeenCalled();
   });
@@ -237,9 +246,7 @@ describe("auth commands", () => {
       // absorb the thrown process.exit error
     }
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Invalid region")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid region"));
     expect(processExitSpy).toHaveBeenCalledWith(1);
     expect(saveConfig).not.toHaveBeenCalled();
   });
@@ -254,14 +261,14 @@ describe("auth commands", () => {
 
     await program.parseAsync(["node", "test", "auth", "login"]);
 
-    expect(saveConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ sellerId: "MANUAL123" })
-    );
+    expect(saveConfig).toHaveBeenCalledWith(expect.objectContaining({ sellerId: "MANUAL123" }));
   });
 
   it("auth login handles saveConfig error", async () => {
     mockReadline(["my-client-id", "my-secret", "my-token", "na", "ATVPDKIKX0DER", "n"]);
-    mockParticipations([{ marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" }]);
+    mockParticipations([
+      { marketplace: { name: "Invoicing Shadow" }, storeName: "Invoicing_1_SELLER123" },
+    ]);
     (saveConfig as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error("write error");
     });
