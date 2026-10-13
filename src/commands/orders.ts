@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson, printError, colorState, formatCurrency } from "../output.js";
+import { formatApiError, isAuthError } from "../errors.js";
 
 interface OrderTotal {
   Amount?: string | number;
@@ -34,14 +35,6 @@ interface GetOrderItemsResult {
   OrderItems: OrderItem[];
 }
 
-function isAuthError(err: unknown): boolean {
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase();
-    return msg.includes("401") || msg.includes("403") || msg.includes("unauthorized") || msg.includes("forbidden");
-  }
-  return false;
-}
-
 export function registerOrdersCommands(
   program: Command,
   client: SellingPartner,
@@ -64,7 +57,7 @@ export function registerOrdersCommands(
         const defaultStart = new Date();
         defaultStart.setDate(defaultStart.getDate() - 30);
 
-        const result = await client.callAPI({
+        const result = (await client.callAPI({
           operation: "getOrders",
           endpoint: "orders",
           query: {
@@ -102,7 +95,7 @@ export function registerOrdersCommands(
 
         printTable(["Order ID", "Status", "Purchase Date", "Items", "Total"], rows);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = formatApiError(err);
         printError(`Failed to list orders: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");
@@ -139,7 +132,7 @@ export function registerOrdersCommands(
         }
         console.log("");
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = formatApiError(err);
         printError(`Failed to get order: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");
@@ -184,7 +177,7 @@ export function registerOrdersCommands(
 
         printTable(["ASIN", "SKU", "Title", "Qty Ordered", "Qty Shipped", "Price"], rows);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = formatApiError(err);
         printError(`Failed to get order items: ${message}`);
         if (isAuthError(err)) {
           printError("Hint: run 'auth login' to re-authenticate.");
