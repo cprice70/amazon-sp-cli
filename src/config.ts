@@ -1,12 +1,20 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { CliError } from "./errors.js";
+
+export const REGIONS = ["na", "eu", "fe"] as const;
+export type Region = (typeof REGIONS)[number];
+
+function isRegion(value: unknown): value is Region {
+  return typeof value === "string" && (REGIONS as readonly string[]).includes(value);
+}
 
 export interface Config {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
-  region: "na" | "eu" | "fe";
+  region: Region;
   sandbox: boolean;
   marketplaceId?: string;
   sellerId?: string;
@@ -40,6 +48,13 @@ export function loadConfig(): Partial<Config> {
   if (process.env.AMAZON_SP_MARKETPLACE_ID)
     config.marketplaceId = process.env.AMAZON_SP_MARKETPLACE_ID;
   if (process.env.AMAZON_SP_SELLER_ID) config.sellerId = process.env.AMAZON_SP_SELLER_ID;
+
+  if (config.region !== undefined && !isRegion(config.region)) {
+    const source = process.env.AMAZON_SP_REGION ? "AMAZON_SP_REGION" : `region in ${configPath}`;
+    throw new CliError(
+      `Invalid ${source}: "${String(config.region)}". Must be one of: ${REGIONS.join(", ")}.`
+    );
+  }
 
   return config;
 }

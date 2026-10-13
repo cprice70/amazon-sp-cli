@@ -33,6 +33,9 @@ interface SearchListingsItemsResult {
   pagination?: { nextToken?: string };
 }
 
+/** Maximum width of the Title column in `listings search`. */
+const TITLE_WIDTH = 60;
+
 /** listingsItems 2021-08-01 searchListingsItems accepts pageSize of 1-20. */
 const LISTINGS_PAGE_MAX = 20;
 
@@ -183,7 +186,9 @@ export function registerListingsCommands(
             ];
           });
 
-          printTable(["SKU", "ASIN", "Title", "Status"], rows);
+          printTable(["SKU", "ASIN", "Title", "Status"], rows, {
+            maxWidths: [undefined, undefined, TITLE_WIDTH],
+          });
         });
       }
     );

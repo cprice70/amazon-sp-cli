@@ -2,18 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
 import { registerAuthCommands } from "../../commands/auth.js";
 import { loadConfig, saveConfig, deleteConfig } from "../../config.js";
-import readline from "readline/promises";
+import { createPrompter } from "../../prompt.js";
 import { createClient } from "../../sp-client.js";
 
 vi.mock("../../config.js", () => ({
+  REGIONS: ["na", "eu", "fe"],
   loadConfig: vi.fn(),
   saveConfig: vi.fn(),
   deleteConfig: vi.fn(),
   getConfigPath: vi.fn(() => "/home/user/.config/amazon-sp-cli/config.json"),
 }));
 
-vi.mock("readline/promises", () => ({
-  default: { createInterface: vi.fn() },
+vi.mock("../../prompt.js", () => ({
+  createPrompter: vi.fn(),
 }));
 
 vi.mock("../../sp-client.js", () => ({
@@ -23,13 +24,16 @@ vi.mock("../../sp-client.js", () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function mockReadline(answers: string[]) {
+  // Both ask and askSecret pull from the same ordered answer list, mirroring
+  // the order the login wizard asks its questions.
   let i = 0;
-  const rl = {
-    question: vi.fn(async () => answers[i++] ?? ""),
+  const prompter = {
+    ask: vi.fn(async () => answers[i++] ?? ""),
+    askSecret: vi.fn(async () => answers[i++] ?? ""),
     close: vi.fn(),
   };
-  (readline.createInterface as ReturnType<typeof vi.fn>).mockReturnValue(rl);
-  return rl;
+  (createPrompter as ReturnType<typeof vi.fn>).mockReturnValue(prompter);
+  return prompter;
 }
 
 // detectSellerId builds an SP client from the freshly entered credentials and
@@ -58,7 +62,7 @@ describe("auth commands", () => {
     (loadConfig as ReturnType<typeof vi.fn>).mockReset();
     (saveConfig as ReturnType<typeof vi.fn>).mockReset();
     (deleteConfig as ReturnType<typeof vi.fn>).mockReset();
-    (readline.createInterface as ReturnType<typeof vi.fn>).mockReset();
+    (createPrompter as ReturnType<typeof vi.fn>).mockReset();
     mockCallAPI.mockReset();
     (createClient as ReturnType<typeof vi.fn>).mockReset();
   });
@@ -207,6 +211,32 @@ describe("auth commands", () => {
     await program.parseAsync(["node", "test", "auth", "login"]);
 
     expect(saveConfig).toHaveBeenCalledWith(expect.objectContaining({ sellerId: "MANUAL999" }));
+  });
+
+  it("auth login asks for the client secret and refresh token without echo", async () => {
+    const prompter = mockReadline([
+      "my-client-id",
+      "my-secret",
+      "my-token",
+      "na",
+      "",
+      "n",
+      "MANUAL1",
+    ]);
+    mockParticipations([]);
+
+    const program = new Command();
+    program.exitOverride();
+    registerAuthCommands(program);
+
+    await program.parseAsync(["node", "test", "auth", "login"]);
+
+    expect(prompter.askSecret).toHaveBeenCalledWith(expect.stringContaining("Client Secret"));
+    expect(prompter.askSecret).toHaveBeenCalledWith(expect.stringContaining("Refresh Token"));
+    expect(prompter.ask).toHaveBeenCalledWith(expect.stringContaining("Client ID"));
+    expect(prompter.ask).not.toHaveBeenCalledWith(expect.stringContaining("Secret"));
+    expect(prompter.ask).not.toHaveBeenCalledWith(expect.stringContaining("Refresh Token"));
+    expect(prompter.close).toHaveBeenCalled();
   });
 
   it("auth login rejects empty Client ID", async () => {

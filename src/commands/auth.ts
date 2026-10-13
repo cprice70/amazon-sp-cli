@@ -1,7 +1,7 @@
-import readline from "readline/promises";
 import type { Command } from "commander";
-import type { Config } from "../config.js";
-import { loadConfig, saveConfig, deleteConfig, getConfigPath } from "../config.js";
+import type { Config, Region } from "../config.js";
+import { REGIONS, loadConfig, saveConfig, deleteConfig, getConfigPath } from "../config.js";
+import { createPrompter } from "../prompt.js";
 import { createClient } from "../sp-client.js";
 import { printSuccess, printError, printWarning } from "../output.js";
 
@@ -50,41 +50,38 @@ export function registerAuthCommands(program: Command): void {
     .command("login")
     .description("Store SP-API credentials interactively")
     .action(async () => {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
+      const rl = createPrompter();
 
       try {
-        const clientId = await rl.question("Client ID: ");
+        const clientId = await rl.ask("Client ID: ");
         if (!clientId.trim()) {
           printError("Client ID is required");
           process.exit(1);
         }
 
-        const clientSecret = await rl.question("Client Secret: ");
+        const clientSecret = await rl.askSecret("Client Secret: ");
         if (!clientSecret.trim()) {
           printError("Client Secret is required");
           process.exit(1);
         }
 
-        const refreshToken = await rl.question("Refresh Token: ");
+        const refreshToken = await rl.askSecret("Refresh Token: ");
         if (!refreshToken.trim()) {
           printError("Refresh Token is required");
           process.exit(1);
         }
 
-        const regionInput = await rl.question("Region (na/eu/fe) [na]: ");
-        const region = (regionInput.trim() || "na") as "na" | "eu" | "fe";
-        if (!["na", "eu", "fe"].includes(region)) {
+        const regionInput = await rl.ask("Region (na/eu/fe) [na]: ");
+        const region = (regionInput.trim() || "na") as Region;
+        if (!(REGIONS as readonly string[]).includes(region)) {
           printError("Invalid region. Must be na, eu, or fe");
           process.exit(1);
         }
 
-        const marketplaceIdInput = await rl.question("Marketplace ID (optional): ");
+        const marketplaceIdInput = await rl.ask("Marketplace ID (optional): ");
         const marketplaceId = marketplaceIdInput.trim() || undefined;
 
-        const sandboxInput = await rl.question("Sandbox mode? (y/N): ");
+        const sandboxInput = await rl.ask("Sandbox mode? (y/N): ");
         const sandbox = sandboxInput.toLowerCase() === "y";
 
         const partialConfig: Partial<Config> = {
@@ -104,7 +101,7 @@ export function registerAuthCommands(program: Command): void {
           partialConfig.sellerId = detectedSellerId;
         } else {
           process.stdout.write("not found\n");
-          const sellerIdInput = await rl.question(
+          const sellerIdInput = await rl.ask(
             "Seller ID (required for listings commands — find it in Seller Central > Account Info > Merchant Token): "
           );
           partialConfig.sellerId = sellerIdInput.trim() || undefined;

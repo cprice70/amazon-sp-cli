@@ -193,6 +193,76 @@ describe("orders commands", () => {
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(orderList, null, 2));
   });
 
+  it("orders list splits a comma-separated --status into OrderStatuses", async () => {
+    mockCallAPI.mockResolvedValueOnce({ Orders: [] });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "list", "--status", "Pending, unshipped"]);
+
+    expect(mockCallAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ OrderStatuses: ["PENDING", "UNSHIPPED"] }),
+      })
+    );
+  });
+
+  it("orders get prints a labeled summary with currency, items, and ship-to", async () => {
+    mockCallAPI.mockResolvedValueOnce({
+      AmazonOrderId: "123-456-789",
+      OrderStatus: "SHIPPED",
+      PurchaseDate: "2026-01-02T03:04:05Z",
+      FulfillmentChannel: "AFN",
+      SalesChannel: "Amazon.de",
+      NumberOfItemsShipped: 2,
+      NumberOfItemsUnshipped: 1,
+      OrderTotal: { Amount: "45.00", CurrencyCode: "EUR" },
+      ShippingAddress: {
+        City: "Berlin",
+        StateOrRegion: "BE",
+        PostalCode: "10115",
+        CountryCode: "DE",
+      },
+      BuyerInfo: { BuyerEmail: "x@marketplace.amazon.de" },
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "get", "--order", "123-456-789"]);
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    expect(output).toMatch(/Order ID:\s+123-456-789/);
+    expect(output).toMatch(/Status:\s+SHIPPED/);
+    expect(output).toMatch(/Total:\s+€45.00/);
+    expect(output).toMatch(/Items:\s+3 \(2 shipped, 1 unshipped\)/);
+    expect(output).toMatch(/Ship to:\s+Berlin, BE 10115, DE/);
+    expect(output).toMatch(/Buyer:\s+x@marketplace.amazon.de/);
+    expect(output).toContain("--json");
+    // No raw JSON dumps of nested objects
+    expect(output).not.toContain("{");
+  });
+
+  it("orders items truncates long titles in the table", async () => {
+    const longTitle = "T".repeat(150);
+    mockCallAPI.mockResolvedValueOnce({
+      OrderItems: [{ ASIN: "B0", Title: longTitle, QuantityOrdered: 1 }],
+    });
+
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await program.parseAsync(["node", "test", "orders", "items", "--order", "1"]);
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    expect(output).toContain("…");
+    expect(output).not.toContain(longTitle);
+  });
+
   it("orders get outputs JSON with --json flag", async () => {
     const order = { AmazonOrderId: "123-456-789", OrderStatus: "SHIPPED" };
     mockCallAPI.mockResolvedValueOnce(order);
