@@ -52,6 +52,7 @@ describe("inventory commands", () => {
     expect(mockCallAPI).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "getInventorySummaries",
+        options: { version: "v1" },
         query: expect.objectContaining({
           granularityType: "Marketplace",
           granularityId: "ATVPDKIKX0DER",

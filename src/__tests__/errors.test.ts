@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { isAuthError, formatApiError } from "../errors.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { isAuthError, formatApiError, runCommand } from "../errors.js";
 
 function spApiError(fields: Record<string, unknown>): Error {
   // Mirrors amazon-sp-api's CustomError: an Error with the response body's
@@ -45,5 +45,53 @@ describe("isAuthError", () => {
     expect(isAuthError(new Error("Request throttled"))).toBe(false);
     expect(isAuthError(spApiError({ code: "InvalidInput", message: "bad asin" }))).toBe(false);
     expect(isAuthError("nope")).toBe(false);
+  });
+});
+
+describe("runCommand", () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let processExitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    processExitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as any);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("runs the action and does not exit on success", async () => {
+    const action = vi.fn().mockResolvedValue(undefined);
+    await runCommand("list orders", action);
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(processExitSpy).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it("prints a labeled error with details and exits 1 on failure", async () => {
+    const err = spApiError({ message: "Access denied.", details: "Token expired." });
+    await runCommand("list orders", async () => {
+      throw err;
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to list orders: Access denied. (Token expired.)")
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("adds a re-authenticate hint for auth errors", async () => {
+    await runCommand("list orders", async () => {
+      throw spApiError({ code: "Unauthorized", message: "Access denied." });
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
+  });
+
+  it("does not add the hint for non-auth errors", async () => {
+    await runCommand("list orders", async () => {
+      throw new Error("Request throttled");
+    });
+    const output = consoleErrorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(output).not.toContain("auth login");
   });
 });

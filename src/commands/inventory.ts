@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
-import { printTable, printJson, printError } from "../output.js";
-import { formatApiError, isAuthError } from "../errors.js";
+import { printTable, printJson } from "../output.js";
+import { runCommand } from "../errors.js";
 
 interface InventoryDetails {
   fulfillableQuantity?: number;
@@ -34,12 +34,13 @@ export function registerInventoryCommands(
     .option("--json", "Output raw JSON instead of table")
     .option("--sku <sku>", "Filter by seller SKU")
     .action(async (opts: { marketplace?: string; json?: boolean; sku?: string }) => {
-      try {
+      await runCommand("list inventory", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
         const result = await client.callAPI({
           operation: "getInventorySummaries",
           endpoint: "fbaInventory",
+          options: { version: "v1" },
           query: {
             granularityType: "Marketplace",
             granularityId: marketplaceId,
@@ -72,13 +73,6 @@ export function registerInventoryCommands(
         });
 
         printTable(["ASIN", "FNSKU", "Seller SKU", "Condition", "Qty"], rows);
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to list inventory: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 }

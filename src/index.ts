@@ -3,7 +3,7 @@ import { createRequire } from "module";
 import { program } from "commander";
 import { loadConfig } from "./config.js";
 import { createClient } from "./sp-client.js";
-import { printError, printWarning } from "./output.js";
+import { printError } from "./output.js";
 import { registerAuthCommands } from "./commands/auth.js";
 import { registerOrdersCommands } from "./commands/orders.js";
 import { registerInventoryCommands } from "./commands/inventory.js";

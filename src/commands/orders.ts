@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
-import { printTable, printJson, printError, colorState, formatCurrency } from "../output.js";
-import { formatApiError, isAuthError } from "../errors.js";
+import { printTable, printJson, colorState, formatCurrency } from "../output.js";
+import { runCommand } from "../errors.js";
 
 interface OrderTotal {
   Amount?: string | number;
@@ -51,22 +51,25 @@ export function registerOrdersCommands(
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON instead of table")
     .action(async (opts: { status?: string; start?: string; end?: string; marketplace?: string; json?: boolean }) => {
-      try {
+      await runCommand("list orders", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
         const defaultStart = new Date();
         defaultStart.setDate(defaultStart.getDate() - 30);
 
-        const result = await client.callAPI({
+        // amazon-sp-api types getOrders as a union of the v0 and 2026-01-01
+        // response shapes; we pin v0, whose payload is unwrapped to { Orders }.
+        const result = (await client.callAPI({
           operation: "getOrders",
           endpoint: "orders",
+          options: { version: "v0" },
           query: {
             MarketplaceIds: [marketplaceId],
             OrderStatuses: opts.status ? [opts.status] : undefined,
             CreatedAfter: opts.start ?? defaultStart.toISOString(),
             CreatedBefore: opts.end,
           },
-        }) as GetOrdersResult;
+        })) as unknown as GetOrdersResult;
 
         const orderList = result.Orders ?? [];
 
@@ -94,27 +97,20 @@ export function registerOrdersCommands(
         });
 
         printTable(["Order ID", "Status", "Purchase Date", "Items", "Total"], rows);
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to list orders: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 
   orders
     .command("get")
     .description("Get a single order by ID")
     .requiredOption("--order <orderId>", "The order ID")
-    .option("--marketplace <id>", "Marketplace ID (for consistency)")
     .option("--json", "Output raw JSON")
-    .action(async (opts: { order: string; marketplace?: string; json?: boolean }) => {
-      try {
+    .action(async (opts: { order: string; json?: boolean }) => {
+      await runCommand("get order", async () => {
         const result = await client.callAPI({
           operation: "getOrder",
           endpoint: "orders",
+          options: { version: "v0" },
           path: { orderId: opts.order },
         }) as OrderRecord;
 
@@ -131,14 +127,7 @@ export function registerOrdersCommands(
           }
         }
         console.log("");
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to get order: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 
   orders
@@ -147,10 +136,11 @@ export function registerOrdersCommands(
     .requiredOption("--order <id>", "The order ID")
     .option("--json", "Output raw JSON instead of table")
     .action(async (opts: { order: string; json?: boolean }) => {
-      try {
+      await runCommand("get order items", async () => {
         const result = await client.callAPI({
           operation: "getOrderItems",
           endpoint: "orders",
+          options: { version: "v0" },
           path: { orderId: opts.order },
         }) as GetOrderItemsResult;
 
@@ -176,13 +166,6 @@ export function registerOrdersCommands(
         ]);
 
         printTable(["ASIN", "SKU", "Title", "Qty Ordered", "Qty Shipped", "Price"], rows);
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to get order items: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 }
