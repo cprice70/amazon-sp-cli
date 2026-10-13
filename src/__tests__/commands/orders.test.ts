@@ -45,9 +45,20 @@ describe("orders commands", () => {
     await program.parseAsync(["node", "test", "orders", "list"]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "getOrders" })
+      expect.objectContaining({ operation: "getOrders", options: { version: "v0" } })
     );
     expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it("orders get rejects the unused --marketplace option", async () => {
+    const program = new Command();
+    program.exitOverride();
+    registerOrdersCommands(program, mockClient, resolveMarketplaceId);
+
+    await expect(
+      program.parseAsync(["node", "test", "orders", "get", "--order", "123", "--marketplace", "X"])
+    ).rejects.toThrow(/unknown option/);
+    expect(mockCallAPI).not.toHaveBeenCalled();
   });
 
   it("orders list outputs JSON with --json flag", async () => {
@@ -75,7 +86,7 @@ describe("orders commands", () => {
     await program.parseAsync(["node", "test", "orders", "get", "--order", "123-456-789", "--json"]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "getOrder" })
+      expect.objectContaining({ operation: "getOrder", options: { version: "v0" } })
     );
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(order, null, 2));
   });
@@ -118,6 +129,7 @@ describe("orders commands", () => {
     expect(mockCallAPI).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "getOrderItems",
+        options: { version: "v0" },
         path: { orderId: "123-456-789" },
       })
     );

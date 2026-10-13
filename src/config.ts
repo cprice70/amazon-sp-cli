@@ -44,8 +44,13 @@ export function saveConfig(config: Partial<Config>): void {
   const configPath = getConfigPath();
   const configDir = path.dirname(configPath);
 
-  fs.mkdirSync(configDir, { recursive: true });
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+  // Config holds the client secret and refresh token: keep it owner-only.
+  // mkdirSync/writeFileSync only apply `mode` on creation, so chmod explicitly
+  // to tighten permissions on pre-existing files and directories too.
+  fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(configDir, 0o700);
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: "utf-8", mode: 0o600 });
+  fs.chmodSync(configPath, 0o600);
 }
 
 export function deleteConfig(): void {

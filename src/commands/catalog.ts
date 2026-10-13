@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
-import { printTable, printJson, printError } from "../output.js";
-import { formatApiError, isAuthError } from "../errors.js";
+import { printTable, printJson } from "../output.js";
+import { runCommand } from "../errors.js";
 
 interface CatalogItemSummary {
   marketplaceId: string;
@@ -40,12 +40,13 @@ export function registerCatalogCommands(
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON instead of table")
     .action(async (opts: { query: string; marketplace?: string; json?: boolean }) => {
-      try {
+      await runCommand("search catalog", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
         const result = await client.callAPI({
           operation: "searchCatalogItems",
           endpoint: "catalogItems",
+          options: { version: "2022-04-01" },
           query: {
             keywords: [opts.query],
             marketplaceIds: [marketplaceId],
@@ -74,14 +75,7 @@ export function registerCatalogCommands(
         });
 
         printTable(["ASIN", "Title", "Brand"], rows);
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to search catalog: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 
   catalog
@@ -91,12 +85,13 @@ export function registerCatalogCommands(
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--json", "Output raw JSON")
     .action(async (opts: { asin: string; marketplace?: string; json?: boolean }) => {
-      try {
+      await runCommand("get catalog item", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
 
         const result = await client.callAPI({
           operation: "getCatalogItem",
           endpoint: "catalogItems",
+          options: { version: "2022-04-01" },
           path: { asin: opts.asin },
           query: { marketplaceIds: [marketplaceId] },
         }) as GetCatalogItemResult;
@@ -114,13 +109,6 @@ export function registerCatalogCommands(
           }
         }
         console.log("");
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to get catalog item: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 }

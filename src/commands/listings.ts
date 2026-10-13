@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson, printError } from "../output.js";
-import { formatApiError, isAuthError } from "../errors.js";
+import { runCommand } from "../errors.js";
 
 interface ListingsSummary {
   marketplaceId: string;
@@ -100,7 +100,7 @@ export function registerListingsCommands(
     .option("--json", "Output raw JSON instead of table")
     .action(
       async (opts: { sku?: string; marketplace?: string; seller?: string; json?: boolean }) => {
-        try {
+        await runCommand("search listings", async () => {
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
@@ -149,14 +149,7 @@ export function registerListingsCommands(
           });
 
           printTable(["SKU", "ASIN", "Title", "Status"], rows);
-        } catch (err) {
-          const message = formatApiError(err);
-          printError(`Failed to search listings: ${message}`);
-          if (isAuthError(err)) {
-            printError("Hint: run 'auth login' to re-authenticate.");
-          }
-          process.exit(1);
-        }
+        });
       }
     );
 
@@ -169,7 +162,7 @@ export function registerListingsCommands(
     .option("--json", "Output raw JSON")
     .action(
       async (opts: { sku: string; marketplace?: string; seller?: string; json?: boolean }) => {
-        try {
+        await runCommand("get listings item", async () => {
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
@@ -199,14 +192,7 @@ export function registerListingsCommands(
           }
 
           formatListingDetail(result, marketplaceId);
-        } catch (err) {
-          const message = formatApiError(err);
-          printError(`Failed to get listings item: ${message}`);
-          if (isAuthError(err)) {
-            printError("Hint: run 'auth login' to re-authenticate.");
-          }
-          process.exit(1);
-        }
+        });
       }
     );
 
@@ -217,7 +203,7 @@ export function registerListingsCommands(
     .option("--marketplace <id>", "Marketplace ID override")
     .option("--seller <id>", "Seller ID override")
     .action(async (opts: { sku: string; marketplace?: string; seller?: string }) => {
-      try {
+      await runCommand("delete listings item", async () => {
         const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
         const sellerId = resolveSellerId({ seller: opts.seller });
 
@@ -234,14 +220,7 @@ export function registerListingsCommands(
             ? (result as { status: string }).status
             : "deleted";
         console.log(`Result: ${status}`);
-      } catch (err) {
-        const message = formatApiError(err);
-        printError(`Failed to delete listings item: ${message}`);
-        if (isAuthError(err)) {
-          printError("Hint: run 'auth login' to re-authenticate.");
-        }
-        process.exit(1);
-      }
+      });
     });
 
   listings
@@ -260,7 +239,7 @@ export function registerListingsCommands(
         seller?: string;
         json?: boolean;
       }) => {
-        try {
+        await runCommand("patch listings item", async () => {
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
@@ -296,14 +275,7 @@ export function registerListingsCommands(
               console.log(`  [${issue.severity}] ${issue.code}: ${issue.message}`);
             }
           }
-        } catch (err) {
-          const message = formatApiError(err);
-          printError(`Failed to patch listings item: ${message}`);
-          if (isAuthError(err)) {
-            printError("Hint: run 'auth login' to re-authenticate.");
-          }
-          process.exit(1);
-        }
+        });
       }
     );
 
@@ -323,7 +295,7 @@ export function registerListingsCommands(
         seller?: string;
         json?: boolean;
       }) => {
-        try {
+        await runCommand("create listings item", async () => {
           const marketplaceId = resolveMarketplaceId({ marketplace: opts.marketplace });
           const sellerId = resolveSellerId({ seller: opts.seller });
 
@@ -359,14 +331,7 @@ export function registerListingsCommands(
               console.log(`  [${issue.severity}] ${issue.code}: ${issue.message}`);
             }
           }
-        } catch (err) {
-          const message = formatApiError(err);
-          printError(`Failed to create listings item: ${message}`);
-          if (isAuthError(err)) {
-            printError("Hint: run 'auth login' to re-authenticate.");
-          }
-          process.exit(1);
-        }
+        });
       }
     );
 }

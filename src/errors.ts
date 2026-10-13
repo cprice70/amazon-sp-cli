@@ -7,6 +7,8 @@
  * part ("The LWA secret token you provided has expired."), so surface it.
  */
 
+import { printError } from "./output.js";
+
 interface SpApiErrorFields {
   code?: unknown;
   details?: unknown;
@@ -29,4 +31,21 @@ export function isAuthError(err: unknown): boolean {
   if (typeof code === "string" && AUTH_CODES.has(code.toLowerCase())) return true;
   const msg = err.message.toLowerCase();
   return msg.includes("401") || msg.includes("403") || msg.includes("unauthorized") || msg.includes("forbidden");
+}
+
+/**
+ * Run a command action with the standard CLI error handling: on failure,
+ * print `Failed to <label>: <message>`, add a re-auth hint for auth errors,
+ * and exit 1.
+ */
+export async function runCommand(label: string, action: () => Promise<void>): Promise<void> {
+  try {
+    await action();
+  } catch (err) {
+    printError(`Failed to ${label}: ${formatApiError(err)}`);
+    if (isAuthError(err)) {
+      printError("Hint: run 'auth login' to re-authenticate.");
+    }
+    process.exit(1);
+  }
 }

@@ -40,7 +40,7 @@ describe("catalog commands", () => {
     await program.parseAsync(["node", "test", "catalog", "search", "--query", "widget"]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "searchCatalogItems" })
+      expect.objectContaining({ operation: "searchCatalogItems", options: { version: "2022-04-01" } })
     );
     expect(consoleSpy).toHaveBeenCalled();
   });
@@ -70,7 +70,7 @@ describe("catalog commands", () => {
     await program.parseAsync(["node", "test", "catalog", "get", "--asin", "B001234567", "--json"]);
 
     expect(mockCallAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "getCatalogItem" })
+      expect.objectContaining({ operation: "getCatalogItem", options: { version: "2022-04-01" } })
     );
     expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(item, null, 2));
   });
