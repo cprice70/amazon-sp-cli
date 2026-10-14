@@ -33,6 +33,10 @@ node build/index.js <command>
 
 **Program assembly** (`src/cli.ts`): `buildProgram` creates the commander `Command`, adds the root `--sandbox` option, and registers command groups. Auth commands register without a client; all other groups receive a `clientProxy` whose first property access builds the real client via `deps.createClient` (so `--sandbox` has been parsed and help/version never touch credentials). Missing credentials surface as a `CliError` with `EXIT.AUTH`. `resolveMarketplaceId` and `resolveSellerId` resolve from CLI options → config → `CliError`. Tests build the program with a fake `createClient` (`src/__tests__/cli.test.ts`).
 
+**Command groups:** `auth`, `orders`, `inventory`, `catalog`, `listings`, `sellers`, `reports`, `finances`, `fba` under `src/commands/`. `reports` takes an optional `{ sleep, now }` deps object so `--wait` polling is testable without timers.
+
+**Completion** (`src/completion.ts`): `generateCompletion(program, "bash" | "zsh")` walks `program.commands` (groups → subcommands → long option flags) and emits a static script; `registerCompletionCommand` exposes it as `completion <shell>`. New commands and options appear automatically.
+
 **Prompts** (`src/prompt.ts`): `createPrompter()` wraps readline with `ask` and `askSecret`; the latter mutes readline's echo so secrets are not shown. `auth login` uses it; tests mock the module.
 
 **Config** (`src/config.ts`): Persists credentials to `~/.config/amazon-sp-cli/config.json` (dir 0700, file 0600). Environment variables (`AMAZON_SP_*`) override file values. Config is always a `Partial<Config>` — the client validates completeness at construction time. `loadConfig` throws a `CliError` if the merged region is not one of `REGIONS`.

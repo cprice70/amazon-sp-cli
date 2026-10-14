@@ -1,6 +1,6 @@
 # amazon-sp-cli
 
-A command-line tool for Amazon sellers to manage orders, inventory, listings, and catalog items directly from the terminal using the Amazon Selling Partner API (SP-API).
+A command-line tool for Amazon sellers to manage orders, inventory, listings, catalog items, reports, finances, and FBA inbound shipments directly from the terminal using the Amazon Selling Partner API (SP-API).
 
 ```
 $ amazon-sp orders list
@@ -254,6 +254,97 @@ amazon-sp catalog search --query "blue widget" --all --json
 amazon-sp catalog get --asin B001234567
 amazon-sp catalog get --asin B001234567 --json
 ```
+
+---
+
+### Sellers
+
+```bash
+amazon-sp sellers participations          # marketplaces you sell in, with IDs
+amazon-sp sellers account                 # business details
+amazon-sp sellers participations --json
+```
+
+---
+
+### Reports
+
+**Request a report and wait for it:**
+
+```bash
+amazon-sp reports create --type GET_MERCHANT_LISTINGS_ALL_DATA --wait --out listings.tsv
+amazon-sp reports create --type GET_SALES_AND_TRAFFIC_REPORT \
+  --start 2026-01-01T00:00:00Z --end 2026-02-01T00:00:00Z \
+  --option dateGranularity=DAY --option asinGranularity=CHILD --wait
+```
+
+Without `--wait` the command prints the report ID and returns immediately. With `--wait` it polls every 15 seconds (up to 30 minutes) and then prints the document to stdout, or saves it with `--out`.
+
+| Flag | Description |
+|------|-------------|
+| `--type <type>` | Report type (required). See Amazon's report type list. |
+| `--start <date>` / `--end <date>` | ISO dates for `dataStartTime` / `dataEndTime` |
+| `--option <key=value>` | Report option; repeat for several |
+| `--wait` | Poll until done, then download |
+| `--out <file>` | With `--wait`, save to a file instead of stdout |
+| `--marketplace <id>` | Override default marketplace ID |
+| `--json` | Output raw JSON |
+
+**Check, list, download, or cancel:**
+
+```bash
+amazon-sp reports get --report 123456789
+amazon-sp reports list --type GET_MERCHANT_LISTINGS_ALL_DATA --status DONE
+amazon-sp reports list --all --json
+amazon-sp reports download --report 123456789 --out report.tsv
+amazon-sp reports download --report 123456789 --wait      # still processing? poll first
+amazon-sp reports cancel --report 123456789
+```
+
+`reports list` takes `--type`, `--status` (comma-separated), `--limit`, `--all`, `--marketplace`, and `--json`.
+
+---
+
+### Finances
+
+```bash
+amazon-sp finances groups                            # settlement periods, last 90 days
+amazon-sp finances groups --start 2026-01-01 --all
+amazon-sp finances events                            # all financial events, last 30 days
+amazon-sp finances events --order 123-4567890-1234567
+amazon-sp finances events --group 12345678901234567890
+amazon-sp finances transactions                      # Finances 2024-06-19 transactions, last 30 days
+amazon-sp finances transactions --status DEFERRED --all --json
+```
+
+Every finances command accepts `--start`, `--end`, `--limit`, `--all`, and `--json`. `finances events` renders each event list (shipments, refunds, fees, adjustments, ...) as one table with the event type in the first column; `--json` prints the raw `FinancialEvents` object.
+
+---
+
+### FBA inbound shipments
+
+```bash
+amazon-sp fba shipments                              # active shipments
+amazon-sp fba shipments --status CLOSED,CANCELLED
+amazon-sp fba shipments --shipment FBA15ABCDEFG
+amazon-sp fba shipment-items --shipment FBA15ABCDEFG
+```
+
+---
+
+### Shell completion
+
+```bash
+# bash
+amazon-sp completion bash > ~/.local/share/bash-completion/completions/amazon-sp
+# or for the current shell only
+eval "$(amazon-sp completion bash)"
+
+# zsh
+amazon-sp completion zsh > "${fpath[1]}/_amazon-sp" && compinit
+```
+
+The script is generated from the command tree, so it stays current with the installed version.
 
 ---
 
