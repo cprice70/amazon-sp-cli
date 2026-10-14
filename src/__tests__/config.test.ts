@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { getConfigPath, loadConfig, saveConfig, deleteConfig } from "../config.js";
+import { CliError } from "../errors.js";
 
 describe("config", () => {
   const testConfigDir = path.join(os.tmpdir(), "amazon-sp-cli-test-" + Date.now());
@@ -22,7 +23,9 @@ describe("config", () => {
     vi.restoreAllMocks();
     try {
       fs.rmSync(testConfigDir, { recursive: true, force: true });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   });
 
   it("getConfigPath returns correct path", () => {
@@ -75,6 +78,25 @@ describe("config", () => {
     const dirMode = fs.statSync(path.dirname(getConfigPath())).mode & 0o777;
     expect(fileMode).toBe(0o600);
     expect(dirMode).toBe(0o700);
+  });
+
+  it("loadConfig rejects an invalid region from the environment", () => {
+    process.env.AMAZON_SP_REGION = "us";
+    expect(() => loadConfig()).toThrow(CliError);
+    expect(() => loadConfig()).toThrow(/AMAZON_SP_REGION.*na, eu, fe/);
+  });
+
+  it("loadConfig rejects an invalid region from the config file", () => {
+    fs.mkdirSync(path.dirname(getConfigPath()), { recursive: true });
+    fs.writeFileSync(getConfigPath(), JSON.stringify({ region: "xx" }));
+    expect(() => loadConfig()).toThrow(/region.*na, eu, fe/i);
+  });
+
+  it("loadConfig accepts each valid region from the environment", () => {
+    for (const region of ["na", "eu", "fe"]) {
+      process.env.AMAZON_SP_REGION = region;
+      expect(loadConfig().region).toBe(region);
+    }
   });
 
   it("deleteConfig removes the config file", () => {

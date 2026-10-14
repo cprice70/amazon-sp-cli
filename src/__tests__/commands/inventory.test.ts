@@ -142,7 +142,10 @@ describe("inventory commands", () => {
 
   it("inventory list --all follows pagination.nextToken", async () => {
     mockCallAPI
-      .mockResolvedValueOnce({ inventorySummaries: [{ asin: "A1" }], pagination: { nextToken: "n1" } })
+      .mockResolvedValueOnce({
+        inventorySummaries: [{ asin: "A1" }],
+        pagination: { nextToken: "n1" },
+      })
       .mockResolvedValueOnce({ inventorySummaries: [{ asin: "A2" }] });
 
     const program = new Command();
@@ -155,7 +158,9 @@ describe("inventory commands", () => {
     expect(mockCallAPI).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ nextToken: "n1" }) })
     );
-    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify([{ asin: "A1" }, { asin: "A2" }], null, 2));
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify([{ asin: "A1" }, { asin: "A2" }], null, 2)
+    );
   });
 
   it("inventory list handles API errors gracefully", async () => {
@@ -181,9 +186,7 @@ describe("inventory commands", () => {
     await program.parseAsync(["node", "test", "inventory", "list"]);
 
     expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("auth login")
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("auth login"));
   });
 
   // ── inventory list --sku ───────────────────────────────────────────────────

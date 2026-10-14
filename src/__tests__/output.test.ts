@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { printJson, printSuccess, printError, printWarning, formatCurrency, colorState, printTable } from "../output.js";
+import {
+  printJson,
+  printSuccess,
+  printError,
+  printWarning,
+  formatCurrency,
+  colorState,
+  printTable,
+} from "../output.js";
 
 describe("output", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
@@ -18,9 +26,7 @@ describe("output", () => {
 
   it("printJson outputs pretty JSON", () => {
     printJson({ key: "value", num: 42 });
-    expect(consoleSpy).toHaveBeenCalledWith(
-      JSON.stringify({ key: "value", num: 42 }, null, 2)
-    );
+    expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify({ key: "value", num: 42 }, null, 2));
   });
 
   it("printSuccess calls console.log", () => {
@@ -68,6 +74,22 @@ describe("output", () => {
     expect(colorState("PENDING")).toContain("PENDING");
     expect(colorState("CANCELED")).toContain("CANCELED");
     expect(colorState("UNKNOWN")).toBe("UNKNOWN");
+  });
+
+  it("printTable truncates cells past a column's max width with an ellipsis", () => {
+    printTable(["Id", "Title"], [["1", "abcdefghijklmnopqrstuvwxyz"]], {
+      maxWidths: [undefined, 10],
+    });
+    const output = consoleSpy.mock.calls[0][0] as string;
+    expect(output).toContain("abcdefghi…");
+    expect(output).not.toContain("abcdefghijk");
+  });
+
+  it("printTable leaves cells within the max width alone", () => {
+    printTable(["Id", "Title"], [["1", "short"]], { maxWidths: [undefined, 10] });
+    const output = consoleSpy.mock.calls[0][0] as string;
+    expect(output).toContain("short");
+    expect(output).not.toContain("…");
   });
 
   it("printTable outputs a table", () => {

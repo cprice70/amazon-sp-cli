@@ -32,7 +32,10 @@ describe("formatApiError", () => {
 
 describe("isAuthError", () => {
   it("detects SP-API Unauthorized by error code even when the message does not say so", () => {
-    const err = spApiError({ code: "Unauthorized", message: "Access to requested resource is denied." });
+    const err = spApiError({
+      code: "Unauthorized",
+      message: "Access to requested resource is denied.",
+    });
     expect(isAuthError(err)).toBe(true);
   });
 
@@ -91,7 +94,7 @@ describe("runCommand", () => {
     await runCommand("list orders", async () => {
       throw new Error("Request throttled");
     });
-    const output = consoleErrorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    const output = consoleErrorSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
     expect(output).not.toContain("auth login");
   });
 });

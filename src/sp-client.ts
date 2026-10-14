@@ -3,7 +3,6 @@ import type { SellingPartner } from "amazon-sp-api";
 import type { Config } from "./config.js";
 
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const SellingPartnerClass = require("amazon-sp-api").SellingPartner as new (
   config: ConstructorParameters<typeof SellingPartner>[0]
 ) => SellingPartner;

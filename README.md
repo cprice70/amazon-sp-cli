@@ -73,7 +73,9 @@ You'll be prompted for:
 
 The CLI will attempt to auto-detect your Seller ID. If that fails, you'll be prompted to enter it manually (required for listings commands).
 
-Credentials are saved to `~/.config/amazon-sp-cli/config.json`.
+The Client Secret and Refresh Token are not echoed as you type them.
+
+Credentials are saved to `~/.config/amazon-sp-cli/config.json`, readable only by your user.
 
 **Check your auth status:**
 
@@ -98,6 +100,7 @@ amazon-sp auth logout
 ```bash
 amazon-sp orders list
 amazon-sp orders list --status UNSHIPPED
+amazon-sp orders list --status PENDING,UNSHIPPED
 amazon-sp orders list --start 2026-01-01 --end 2026-03-01
 amazon-sp orders list --limit 500
 amazon-sp orders list --all --json
@@ -105,7 +108,7 @@ amazon-sp orders list --all --json
 
 | Flag | Description |
 |------|-------------|
-| `--status <status>` | Filter by status: `PENDING`, `UNSHIPPED`, `SHIPPED`, `CANCELED`, etc. |
+| `--status <statuses>` | Filter by status, comma-separated: `PENDING`, `UNSHIPPED`, `SHIPPED`, `CANCELED`, etc. |
 | `--start <date>` | ISO date for CreatedAfter (default: 30 days ago) |
 | `--end <date>` | ISO date for CreatedBefore |
 | `--limit <n>` | Return at most `n` orders, fetching more pages as needed |
@@ -274,7 +277,15 @@ You can also set credentials via environment variables (useful for CI/scripts):
 | `AMAZON_SP_SELLER_ID` | Default Seller ID |
 | `AMAZON_SP_SANDBOX` | Sandbox mode (`true`/`false`) |
 
-Environment variables override values in the config file.
+Environment variables override values in the config file. An invalid `AMAZON_SP_REGION` is rejected at startup.
+
+### Sandbox
+
+Pass `--sandbox` on any command to hit the SP-API sandbox for that one invocation, regardless of the saved setting. A note is printed to stderr whenever the sandbox is in use.
+
+```bash
+amazon-sp orders list --sandbox
+```
 
 ### Exit codes
 

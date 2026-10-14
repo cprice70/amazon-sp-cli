@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson, colorState, formatCurrency } from "../output.js";
 import { runCommand } from "../errors.js";
@@ -13,10 +13,82 @@ interface OrderRecord {
   AmazonOrderId?: string;
   OrderStatus?: string;
   PurchaseDate?: string;
+  LastUpdateDate?: string;
+  FulfillmentChannel?: string;
+  SalesChannel?: string;
+  ShipServiceLevel?: string;
+  EarliestShipDate?: string;
+  LatestShipDate?: string;
+  IsPrime?: boolean;
+  IsBusinessOrder?: boolean;
   NumberOfItemsShipped?: number;
   NumberOfItemsUnshipped?: number;
   OrderTotal?: OrderTotal;
+  ShippingAddress?: {
+    Name?: string;
+    City?: string;
+    StateOrRegion?: string;
+    PostalCode?: string;
+    CountryCode?: string;
+  };
+  BuyerInfo?: { BuyerEmail?: string; BuyerName?: string };
   [key: string]: unknown;
+}
+
+/** Maximum width of the Title column in `orders items`. */
+const TITLE_WIDTH = 60;
+
+function printField(label: string, value: string | number | boolean | undefined): void {
+  if (value === undefined || value === "") return;
+  console.log(`  ${(label + ":").padEnd(16)}${String(value)}`);
+}
+
+function formatOrderDetail(order: OrderRecord): void {
+  const shipped = order.NumberOfItemsShipped ?? 0;
+  const unshipped = order.NumberOfItemsUnshipped ?? 0;
+  const address = order.ShippingAddress;
+  const shipTo = address
+    ? [
+        address.Name,
+        [address.City, address.StateOrRegion].filter(Boolean).join(", ") +
+          (address.PostalCode ? ` ${address.PostalCode}` : ""),
+        address.CountryCode,
+      ]
+        .filter((part) => part && part.trim())
+        .join(", ")
+    : undefined;
+
+  console.log("");
+  printField("Order ID", order.AmazonOrderId);
+  printField("Status", order.OrderStatus ? colorState(order.OrderStatus) : undefined);
+  printField("Purchased", order.PurchaseDate);
+  printField("Last update", order.LastUpdateDate);
+  printField("Channel", [order.SalesChannel, order.FulfillmentChannel].filter(Boolean).join(" / "));
+  printField("Ship level", order.ShipServiceLevel);
+  printField(
+    "Ship window",
+    [order.EarliestShipDate, order.LatestShipDate].filter(Boolean).join(" to ")
+  );
+  printField("Items", `${shipped + unshipped} (${shipped} shipped, ${unshipped} unshipped)`);
+  if (order.OrderTotal) {
+    printField("Total", formatCurrency(order.OrderTotal.Amount, order.OrderTotal.CurrencyCode));
+  }
+  printField("Prime", order.IsPrime === undefined ? undefined : order.IsPrime ? "yes" : "no");
+  printField("Business", order.IsBusinessOrder ? "yes" : undefined);
+  printField("Buyer", order.BuyerInfo?.BuyerEmail ?? order.BuyerInfo?.BuyerName);
+  printField("Ship to", shipTo);
+  console.log("");
+  console.log("  Use --json for the full order record.");
+  console.log("");
+}
+
+function parseStatuses(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const statuses = value
+    .split(",")
+    .map((status) => status.trim().toUpperCase())
+    .filter(Boolean);
+  return statuses.length > 0 ? statuses : undefined;
 }
 
 interface GetOrdersResult {
@@ -50,7 +122,10 @@ export function registerOrdersCommands(
   orders
     .command("list")
     .description("List orders")
-    .option("--status <status>", "Filter by order status (PENDING, UNSHIPPED, etc.)")
+    .option(
+      "--status <statuses>",
+      "Filter by order status, comma-separated (PENDING,UNSHIPPED, ...)"
+    )
     .option("--start <date>", "ISO date string for CreatedAfter")
     .option("--end <date>", "ISO date string for CreatedBefore")
     .option("--limit <n>", "Maximum number of orders to return", parseLimit)
@@ -82,7 +157,7 @@ export function registerOrdersCommands(
               options: { version: "v0" },
               query: {
                 MarketplaceIds: [marketplaceId],
-                OrderStatuses: opts.status ? [opts.status] : undefined,
+                OrderStatuses: parseStatuses(opts.status),
                 CreatedAfter: opts.start ?? defaultStart.toISOString(),
                 CreatedBefore: opts.end,
                 MaxResultsPerPage: pageSizeFor(opts.limit, ORDERS_PAGE_MAX),
@@ -103,8 +178,7 @@ export function registerOrdersCommands(
           }
 
           const rows = orderList.map((order) => {
-            const items =
-              (order.NumberOfItemsShipped ?? 0) + (order.NumberOfItemsUnshipped ?? 0);
+            const items = (order.NumberOfItemsShipped ?? 0) + (order.NumberOfItemsUnshipped ?? 0);
             const total = formatCurrency(order.OrderTotal?.Amount, order.OrderTotal?.CurrencyCode);
             return [
               order.AmazonOrderId ?? "",
@@ -127,26 +201,19 @@ export function registerOrdersCommands(
     .option("--json", "Output raw JSON")
     .action(async (opts: { order: string; json?: boolean }) => {
       await runCommand("get order", async () => {
-        const result = await client.callAPI({
+        const result = (await client.callAPI({
           operation: "getOrder",
           endpoint: "orders",
           options: { version: "v0" },
           path: { orderId: opts.order },
-        }) as OrderRecord;
+        })) as OrderRecord;
 
         if (opts.json) {
           printJson(result);
           return;
         }
 
-        console.log("");
-        for (const [key, value] of Object.entries(result)) {
-          if (value !== null && value !== undefined) {
-            const display = typeof value === "object" ? JSON.stringify(value) : String(value);
-            console.log(`  ${key}: ${display}`);
-          }
-        }
-        console.log("");
+        formatOrderDetail(result);
       });
     });
 
@@ -157,12 +224,12 @@ export function registerOrdersCommands(
     .option("--json", "Output raw JSON instead of table")
     .action(async (opts: { order: string; json?: boolean }) => {
       await runCommand("get order items", async () => {
-        const result = await client.callAPI({
+        const result = (await client.callAPI({
           operation: "getOrderItems",
           endpoint: "orders",
           options: { version: "v0" },
           path: { orderId: opts.order },
-        }) as GetOrderItemsResult;
+        })) as GetOrderItemsResult;
 
         const items = result.OrderItems ?? [];
 
@@ -185,7 +252,9 @@ export function registerOrdersCommands(
           formatCurrency(item.ItemPrice?.Amount, item.ItemPrice?.CurrencyCode),
         ]);
 
-        printTable(["ASIN", "SKU", "Title", "Qty Ordered", "Qty Shipped", "Price"], rows);
+        printTable(["ASIN", "SKU", "Title", "Qty Ordered", "Qty Shipped", "Price"], rows, {
+          maxWidths: [undefined, undefined, TITLE_WIDTH],
+        });
       });
     });
 }

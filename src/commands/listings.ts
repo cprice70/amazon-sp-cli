@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson } from "../output.js";
 import { CliError, runCommand } from "../errors.js";
@@ -32,6 +32,9 @@ interface SearchListingsItemsResult {
   items?: SearchListingsItemRow[];
   pagination?: { nextToken?: string };
 }
+
+/** Maximum width of the Title column in `listings search`. */
+const TITLE_WIDTH = 60;
 
 /** listingsItems 2021-08-01 searchListingsItems accepts pageSize of 1-20. */
 const LISTINGS_PAGE_MAX = 20;
@@ -75,7 +78,10 @@ function formatListingDetail(item: ListingsItem, marketplaceId: string): void {
   // product_description is an array of objects with {language_tag, value, marketplace_id}
   if (attrs?.product_description) {
     const descObj = attrs.product_description[0];
-    const desc = typeof descObj === "object" && descObj !== null && "value" in descObj ? descObj.value : descObj;
+    const desc =
+      typeof descObj === "object" && descObj !== null && "value" in descObj
+        ? descObj.value
+        : descObj;
     if (desc && typeof desc === "string") {
       console.log("");
       console.log("Description:");
@@ -86,7 +92,9 @@ function formatListingDetail(item: ListingsItem, marketplaceId: string): void {
   // bullet_point is an array of objects with {language_tag, value, marketplace_id}
   if (attrs?.bullet_point) {
     const bullets = (attrs.bullet_point as Array<{ value?: unknown }>)
-      .map((item) => (typeof item === "object" && item !== null && "value" in item ? item.value : item))
+      .map((item) =>
+        typeof item === "object" && item !== null && "value" in item ? item.value : item
+      )
       .filter((val): val is string => typeof val === "string");
 
     if (bullets.length > 0) {
@@ -178,7 +186,9 @@ export function registerListingsCommands(
             ];
           });
 
-          printTable(["SKU", "ASIN", "Title", "Status"], rows);
+          printTable(["SKU", "ASIN", "Title", "Status"], rows, {
+            maxWidths: [undefined, undefined, TITLE_WIDTH],
+          });
         });
       }
     );

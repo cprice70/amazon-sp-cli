@@ -46,7 +46,9 @@ describe("collectPages", () => {
   });
 
   it("tolerates a page with no items array", async () => {
-    const items = await collectPages(async () => ({ items: undefined as unknown as string[] }), { all: true });
+    const items = await collectPages(async () => ({ items: undefined as unknown as string[] }), {
+      all: true,
+    });
     expect(items).toEqual([]);
   });
 });

@@ -2,6 +2,27 @@
   "name": "amazon-sp-cli",
   "version": "0.2.0",
   "description": "CLI for Amazon Selling Partner API",
+  "keywords": [
+    "amazon",
+    "selling-partner-api",
+    "sp-api",
+    "cli",
+    "seller",
+    "fba",
+    "orders",
+    "inventory",
+    "listings"
+  ],
+  "homepage": "https://github.com/cprice70/amazon-sp-cli#readme",
+  "bugs": {
+    "url": "https://github.com/cprice70/amazon-sp-cli/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cprice70/amazon-sp-cli.git"
+  },
+  "license": "MIT",
+  "author": "Chris Price",
   "type": "module",
   "main": "build/index.js",
   "bin": {
@@ -11,28 +32,36 @@
     "build"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
-    "watch": "tsc --watch",
+    "watch": "tsc -p tsconfig.build.json --watch",
     "start": "node build/index.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
   },
-  "author": "",
-  "license": "MIT",
   "dependencies": {
-    "chalk": "^5.4.1",
+    "amazon-sp-api": "^1.0.0",
+    "chalk": "^6.0.1",
     "cli-table3": "^0.6.5",
-    "commander": "^12.1.0",
-    "amazon-sp-api": "^1.0.0"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
   }
 }

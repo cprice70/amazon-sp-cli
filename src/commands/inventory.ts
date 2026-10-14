@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import type { SellingPartner } from "amazon-sp-api";
 import { printTable, printJson } from "../output.js";
 import { runCommand } from "../errors.js";
@@ -68,13 +68,7 @@ export function registerInventoryCommands(
 
         const rows = summaries.map((item) => {
           const qty = item.inventoryDetails?.fulfillableQuantity ?? item.totalQuantity ?? 0;
-          return [
-            item.asin,
-            item.fnSku,
-            item.sellerSku,
-            item.condition,
-            String(qty),
-          ];
+          return [item.asin, item.fnSku, item.sellerSku, item.condition, String(qty)];
         });
 
         printTable(["ASIN", "FNSKU", "Seller SKU", "Condition", "Qty"], rows);
