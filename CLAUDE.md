@@ -53,6 +53,15 @@ node build/index.js <command>
 
 **Tests** (`src/__tests__/`): Vitest tests mock `client.callAPI` via `vi.fn()`, spy on `console.log`/`console.error` and `process.exit`, then parse commands via `program.parseAsync(["node", "test", ...args])`. Tests are type-checked by `npm run typecheck` but excluded from the build.
 
+## Releasing
+
+1. `npm version <x.y.z> -m "v%s"` on `main` (creates the commit and the `vX.Y.Z` tag).
+2. `git push origin main && git push origin vX.Y.Z`.
+3. The tag push runs `.github/workflows/publish.yml`: install, build, test, `npm publish`.
+4. Draft release notes with `gh release create vX.Y.Z --draft --notes-file ...`, then publish the release.
+
+Publishing uses **npm trusted publishing** (OIDC), not a stored token. The workflow has `id-token: write` and the npm package has a trusted publisher configured for this repo and `publish.yml`. If a run fails after the tag exists, fix the cause and re-run with `gh workflow run publish.yml --ref main`; it publishes whatever version `package.json` holds.
+
 ## Adding a New Command Group
 
 1. Create `src/commands/<name>.ts` exporting `register<Name>Commands(program, client, resolveMarketplaceId, ...)`
