@@ -8,6 +8,11 @@ import { registerOrdersCommands } from "./commands/orders.js";
 import { registerInventoryCommands } from "./commands/inventory.js";
 import { registerCatalogCommands } from "./commands/catalog.js";
 import { registerListingsCommands } from "./commands/listings.js";
+import { registerSellersCommands } from "./commands/sellers.js";
+import { registerReportsCommands } from "./commands/reports.js";
+import { registerFinancesCommands } from "./commands/finances.js";
+import { registerFbaCommands } from "./commands/fba.js";
+import { registerCompletionCommand } from "./completion.js";
 
 export interface CliDeps {
   createClient: (config: Partial<Config>) => SellingPartner;
@@ -82,6 +87,11 @@ export function buildProgram(config: Partial<Config>, deps: CliDeps): Command {
   registerInventoryCommands(program, clientProxy, resolveMarketplaceId);
   registerCatalogCommands(program, clientProxy, resolveMarketplaceId);
   registerListingsCommands(program, clientProxy, resolveMarketplaceId, resolveSellerId);
+  registerSellersCommands(program, clientProxy);
+  registerReportsCommands(program, clientProxy, resolveMarketplaceId);
+  registerFinancesCommands(program, clientProxy, resolveMarketplaceId);
+  registerFbaCommands(program, clientProxy, resolveMarketplaceId);
+  registerCompletionCommand(program);
 
   return program;
 }
