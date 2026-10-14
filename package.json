@@ -1,6 +1,6 @@
 {
   "name": "amazon-sp-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "CLI for Amazon Selling Partner API",
   "keywords": [
     "amazon",
